@@ -236,7 +236,7 @@ const deleteSupplier = async (req, res) => {
 
         // 2. 查询供应商是否存在，并获取欠款金额和合同ID
         const supplierResult = await query(
-            `SELECT arrears_amount, contract_id 
+            `SELECT contract_id
        FROM sys_supplier 
        WHERE supplier_id = ?`,
             [supplier_id]
@@ -251,22 +251,13 @@ const deleteSupplier = async (req, res) => {
             });
         }
 
-        const { arrears_amount, contract_id } = supplier[0];
-
-        // 3. 业务规则校验：欠款金额不为0则删除失败
-        if (arrears_amount && parseFloat(arrears_amount) !== 0) {
-            return res.json({
-                code: 400,
-                msg: `删除失败！该供应商存在欠款金额（${arrears_amount}元），请先结清欠款后再删除`,
-                data: null
-            });
-        }
+        const { contract_id } = supplier[0];
 
         // 4. 业务规则校验：合同ID不为空则删除失败
         if (contract_id && contract_id !== '' && contract_id !== null) {
             return res.json({
                 code: 400,
-                msg: `删除失败！该供应商关联了合同（合同ID：${contract_id}），请先解除合同关联后再删除`,
+                msg: `删除失败！该供应商 关联了合同（合同ID：${contract_id}），请先解除合同关联后再删除`,
                 data: null
             });
         }

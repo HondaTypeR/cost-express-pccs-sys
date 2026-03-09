@@ -1,16 +1,39 @@
 const { query } = require('../../db');
 
-// 1. 获取合同列表（无分页，支持关键词筛选）
+// 1. 获取合同列表（无分页，支持多字段筛选）
 const getContractList = async (req, res) => {
     try {
-        const { keyword = '' } = req.query;
+        const {
+            contract_id = '',
+            project_name = '',
+            party_b = '',
+            term = '',
+            type = ''
+        } = req.body;
 
-        // 构建查询条件（按甲方/乙方/合同类型筛选）
+        // 构建查询条件
         let whereSql = '1=1';
         const params = [];
-        if (keyword) {
-            whereSql += ' AND (party_a LIKE ? OR party_b_id LIKE ? OR type LIKE ?)';
-            params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+
+        if (contract_id) {
+            whereSql += ' AND contract_id = ?';
+            params.push(contract_id);
+        }
+        if (project_name) {
+            whereSql += ' AND project_name LIKE ?';
+            params.push(`%${project_name}%`);
+        }
+        if (party_b) {
+            whereSql += ' AND (party_b LIKE ? OR party_b_id = ?)';
+            params.push(`%${party_b}%`, party_b);
+        }
+        if (term) {
+            whereSql += ' AND term = ?';
+            params.push(term);
+        }
+        if (type) {
+            whereSql += ' AND type = ?';
+            params.push(type);
         }
 
         // 查询合同列表（包含所有字段）
@@ -127,6 +150,30 @@ const addContract = async (req, res) => {
 
         // 获取新增合同ID
         const insertId = insertResult.insertId || (Array.isArray(insertResult) ? insertResult[0]?.insertId : null);
+
+        // 获取供应商当前的contract_id
+        const currentContractResult = await query(
+            `SELECT contract_id FROM sys_supplier WHERE supplier_id = ?`,
+            [party_b_id]
+        );
+        const supplierData = Array.isArray(currentContractResult) ? currentContractResult : currentContractResult?.results || [];
+        const existingContractId = supplierData.length > 0 ? supplierData[0].contract_id : '';
+
+        // 构建新的contract_id（逗号分隔追加）
+        let newContractId;
+        if (!existingContractId || existingContractId === '') {
+            newContractId = String(insertId);
+        } else {
+            newContractId = existingContractId + ',' + insertId;
+        }
+
+        // 更新供应商的contract_id
+        const updateResult = await query(
+            `UPDATE sys_supplier SET contract_id = ? WHERE supplier_id = ?`,
+            [newContractId, party_b_id]
+        );
+        console.log('updateResult', updateResult);
+
 
         res.json({
             code: 200,
@@ -344,9 +391,9 @@ const deleteContract = async (req, res) => {
             });
         }
 
-        // 2. 查询合同是否存在
+        // 2. 查询合同是否存在，并获取供应商ID
         const contractResult = await query(
-            'SELECT contract_id FROM sys_contract WHERE contract_id = ?',
+            'SELECT contract_id, party_b_id FROM sys_contract WHERE contract_id = ?',
             [contract_id]
         );
         const contract = Array.isArray(contractResult) ? contractResult : contractResult?.results || [];
@@ -358,6 +405,8 @@ const deleteContract = async (req, res) => {
                 data: null
             });
         }
+
+        const supplierId = contract[0].party_b_id;
 
         // 3. 检查是否有关联的材料管理记录
         const materialResult = await query(
@@ -412,6 +461,28 @@ const deleteContract = async (req, res) => {
 
         const affectedRows = deleteResult.affectedRows || (Array.isArray(deleteResult) ? deleteResult[0]?.affectedRows : 0);
         if (affectedRows > 0) {
+            // 7. 同步更新sys_supplier表，从contract_id中移除被删除的合同ID
+            if (supplierId) {
+                const supplierResult = await query(
+                    'SELECT contract_id FROM sys_supplier WHERE supplier_id = ?',
+                    [supplierId]
+                );
+                const supplierData = Array.isArray(supplierResult) ? supplierResult : supplierResult?.results || [];
+
+                if (supplierData.length > 0 && supplierData[0].contract_id) {
+                    const existingContractIds = supplierData[0].contract_id;
+                    // 从逗号分隔的字符串中移除当前合同ID
+                    const contractIdArray = existingContractIds.split(',').filter(id => id !== String(contract_id));
+                    const newContractId = contractIdArray.join(',');
+
+                    // 更新供应商的contract_id
+                    await query(
+                        'UPDATE sys_supplier SET contract_id = ? WHERE supplier_id = ?',
+                        [newContractId, supplierId]
+                    );
+                }
+            }
+
             res.json({
                 code: 200,
                 msg: '合同删除成功',

@@ -9,7 +9,7 @@ const { upload } = require('../uploadConfig');
 router.post('/upload', upload.array('files', 5), attachmentController.uploadContractAttachment);
 
 // 获取合同列表
-router.get('/list', authMiddleware, controller.getContractList);
+router.post('/list', authMiddleware, controller.getContractList);
 // 获取合同详情
 router.get('/:contract_id', authMiddleware, controller.getContractDetail);
 // 获取合同关联的所有数据（材料、机械、人工）
