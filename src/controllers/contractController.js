@@ -9,7 +9,7 @@ const getContractList = async (req, res) => {
             party_b = '',
             term = '',
             type = ''
-        } = req.body;
+        } = req.body || {};
 
         // 构建查询条件
         let whereSql = '1=1';
@@ -40,7 +40,7 @@ const getContractList = async (req, res) => {
         const listResult = await query(
             `SELECT contract_id, party_a, party_b, party_b_id, project_id,project_name, contract_amount, 
               account_paid, wait_account_paid, term,
-              project_content, type, material_name, machinery_name,
+              project_content, type, contract_type, material_name,people_name,other_name, machinery_name,
               contract_attachment, create_time, update_time
        FROM sys_contract 
        WHERE ${whereSql} 
@@ -81,7 +81,7 @@ const getContractDetail = async (req, res) => {
         const detailResult = await query(
             `SELECT contract_id, party_a, party_b, contract_amount, 
               account_paid, wait_account_paid, term,
-              project_content, type, material_name, machinery_name,
+              project_content, type, contract_type, material_name,people_name,other_name, machinery_name,
               contract_attachment, create_time, update_time
        FROM sys_contract WHERE contract_id = ?`,
             [contract_id]
@@ -115,8 +115,8 @@ const addContract = async (req, res) => {
     try {
         const {
             party_a, party_b, party_b_id, project_id, project_name, contract_amount = 0.00, term = '',
-            project_content = '', type = '', material_name = '',
-            machinery_name = '', contract_attachment = ''
+            project_content = '', type = '', contract_type = '1', material_name = '', people_name = '',
+            other_name = '', machinery_name = '', contract_attachment = ''
         } = req.body;
 
         // 必传参数校验
@@ -140,11 +140,11 @@ const addContract = async (req, res) => {
         const insertResult = await query(
             `INSERT INTO sys_contract (
         party_a, party_b, party_b_id, project_id,project_name, contract_amount, account_paid, wait_account_paid, term, project_content,
-        type, material_name, machinery_name, contract_attachment
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        type, contract_type, material_name,people_name,other_name, machinery_name, contract_attachment
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 party_a, party_b, party_b_id, project_id, project_name, contract_amount, 0, contract_amount, term, project_content,
-                type, material_name, machinery_name, contract_attachment
+                type, contract_type, material_name, people_name, other_name, machinery_name, contract_attachment
             ]
         );
 
@@ -195,7 +195,7 @@ const updateContract = async (req, res) => {
         const { contract_id } = req.body;
         const {
             party_a, party_b, party_b_id, project_name, project_id, contract_amount, account_paid, term,
-            project_content, type, material_name,
+            project_content, type, contract_type, material_name, people_name, other_name,
             machinery_name, contract_attachment
         } = req.body;
 
@@ -247,13 +247,13 @@ const updateContract = async (req, res) => {
             `UPDATE sys_contract SET
         party_a = ?, party_b = ?, party_b_id = ?, project_id = ?, project_name = ?, contract_amount = ?, 
         account_paid = ?, wait_account_paid = ?, term = ?,
-        project_content = ?, type = ?, material_name = ?,
+        project_content = ?, type = ?, contract_type = ?, material_name = ?, people_name = ?, other_name = ?,
         machinery_name = ?, contract_attachment = ?
       WHERE contract_id = ?`,
             [
                 party_a, party_b, party_b_id, project_id, project_name, finalContractAmount,
                 finalAccountPaid, waitAccountPaid, term || '',
-                project_content || '', type || '', material_name || '',
+                project_content || '', type || '', contract_type || '1', material_name || '', people_name || '', other_name || '',
                 machinery_name || '', contract_attachment || '',
                 contract_id
             ]
@@ -326,7 +326,7 @@ const getContractRelatedData = async (req, res) => {
         // 3. 查询该合同下的所有人工管理数据
         const artificialResult = await query(
             `SELECT material_code, project_id, project_name, supplier_unit, phase_num, 
-              material_name, unit, quantity, unit_price, total_price, acceptance_note, 
+              people_name, unit, quantity, unit_price, total_price, acceptance_note,
               handler, reviewer, auditor, related_contract, dept,
               audit_status, document_status, create_time, update_time
        FROM sys_artificial_management 

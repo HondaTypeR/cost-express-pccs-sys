@@ -3,10 +3,17 @@ const router = express.Router();
 const controller = require('../controllers/contractController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 const attachmentController = require('../controllers/contractAttachmentController');
+const importController = require('../controllers/contractImportController');
 const { upload } = require('../uploadConfig');
 
 // 文件上传接口：支持多文件上传（name=files）
 router.post('/upload', upload.array('files', 5), attachmentController.uploadContractAttachment);
+
+// Excel导入合同接口：单文件上传（name=file）
+router.post('/import', authMiddleware, upload.single('file'), importController.importContractExcel);
+
+// 获取Excel导入模板
+router.get('/import/template', authMiddleware, importController.getImportTemplate);
 
 // 获取合同列表
 router.post('/list', authMiddleware, controller.getContractList);
