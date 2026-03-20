@@ -326,7 +326,7 @@ const getContractRelatedData = async (req, res) => {
         // 3. 查询该合同下的所有人工管理数据
         const artificialResult = await query(
             `SELECT artficial_code, project_id, project_name, supplier_unit, phase_num,
-              people_name, unit, quantity, unit_price, total_price, acceptance_note,
+              material_name, unit, quantity, unit_price, total_price, acceptance_note,
               handler, reviewer, auditor, related_contract, dept,
               audit_status, document_status, create_time, update_time
        FROM sys_artificial_management 

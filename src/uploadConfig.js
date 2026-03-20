@@ -17,8 +17,16 @@ const storage = multer.diskStorage({
     },
     // 文件名：时间戳 + 原文件名（避免重复）
     filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname); // 获取文件后缀
-        const fileName = Date.now() + '_' + file.originalname.replace(ext, '') + ext;
+        let originalName = file.originalname || '';
+        try {
+            originalName = Buffer.from(originalName, 'latin1').toString('utf8');
+        } catch (e) {
+            originalName = file.originalname || '';
+        }
+        originalName = path.basename(originalName);
+        const ext = path.extname(originalName); // 获取文件后缀
+        const baseName = originalName.replace(ext, '');
+        const fileName = Date.now() + '_' + baseName + ext;
         cb(null, fileName);
     }
 });
@@ -52,6 +60,6 @@ module.exports = {
     // 生成文件访问URL（前端可直接访问）
     getFileUrl: (fileName) => {
         // 假设你的服务域名是 http://localhost:3000，可根据实际修改
-        return `http://localhost:3000/uploads/contract/${fileName}`;
+        return `http://localhost:3000/uploads/contract/${encodeURIComponent(fileName)}`;
     }
 };

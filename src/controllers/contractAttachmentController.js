@@ -14,9 +14,15 @@ const uploadContractAttachment = async (req, res) => {
 
         // 处理上传后的文件，生成访问URL
         const fileList = req.files.map(file => {
+            let originalName = file.originalname;
+            try {
+                originalName = Buffer.from(file.originalname || '', 'latin1').toString('utf8');
+            } catch (e) {
+                originalName = file.originalname;
+            }
             return {
                 fileName: file.filename, // 存储的文件名
-                originalName: file.originalname, // 原文件名
+                originalName: originalName, // 原文件名
                 fileSize: (file.size / 1024).toFixed(2) + 'KB', // 文件大小
                 fileUrl: getFileUrl(file.filename) // 访问URL
             };

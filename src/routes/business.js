@@ -7,6 +7,7 @@ const materialController = require('../controllers/materialController');
 const mechanicalController = require('../controllers/mechanicalController');
 const artificialController = require('../controllers/artificialController');
 const processRecordController = require('../controllers/processRecordController');
+const contractImportController = require('../controllers/contractImportController');
 
 // 流程记录相关路由（必须放在动态路由之前）
 router.get('/process_record/list', authMiddleware, processRecordController.getProcessRecordList);
@@ -19,6 +20,14 @@ router.post('/process_record/reject', authMiddleware, processRecordController.re
 // 综合查询接口：查询所有材料、机械、人工数据（必须放在动态路由之前）
 router.get('/all-materials', authMiddleware, materialController.getAllMaterialData);
 
+// 预算导入接口（异步任务）
+router.post('/budget/import', authMiddleware, contractImportController.submitBudgetImportTask);
+// 查询导入任务状态
+router.get('/budget/import/status/:task_id', authMiddleware, contractImportController.getBudgetImportTaskStatus);
+// 查询导入任务错误日志
+router.get('/budget/import/result/:task_id', authMiddleware, contractImportController.getBudgetImportTaskResult);
+// 查询导入任务列表（sys_import_task）
+router.get('/budget/import/find/tasks', authMiddleware, contractImportController.getBudgetImportTaskList);
 
 // 获取项目列表
 router.get('/list', authMiddleware, projectController.getProjectList);
