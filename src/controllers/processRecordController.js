@@ -109,7 +109,7 @@ const getProcessRecordList = async (req, res) => {
 const addProcessRecord = async (req, res) => {
     try {
         const {
-            relation_id, // 关联ID（必填，关联材料管理表的material_code）
+            relation_id, // 关联ID（必填）
             handler, // 处理人（必填）
             handle_opinion = '', // 处理意见（可选）
             audit_status = 0, // 审核状态（默认0-待审核）
@@ -162,23 +162,46 @@ const addProcessRecord = async (req, res) => {
         }
 
         // 3. 检查审批中的总金额是否超过待付款金额
-        // 3.1 查询材料的待付款金额
-        const relationIdStr = String(relation_id);
+        // 查询材料的待付款金额
         const materialResult = await query(
-            `SELECT wait_account_paid FROM sys_mechanical_management WHERE material_code = '${relationIdStr}'`,
-            []
+            'SELECT wait_account_paid FROM sys_material_management WHERE material_code = ?',
+            [relation_id]
+        );
+        //  查询机械的待付款金额
+        const mechanicalResult = await query(
+            'SELECT wait_account_paid FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [relation_id]
+        );
+        //  查询人工的待付款金额
+        const peopleResult = await query(
+            'SELECT wait_account_paid FROM sys_artificial_management WHERE artficial_code = ?',
+            [relation_id]
         );
         const materials = Array.isArray(materialResult) ? materialResult : materialResult?.results || [];
+        const mechanicals = Array.isArray(mechanicalResult) ? mechanicalResult : mechanicalResult?.results || [];
+        const peoples = Array.isArray(peopleResult) ? peopleResult : peopleResult?.results || [];
 
-        if (materials.length === 0) {
+        if (materials.length === 0 && mechanicals.length === 0 && peoples.length === 0) {
             return res.json({
                 code: 400,
-                msg: `关联的材料记录（material_code=${relation_id}）不存在`,
+                msg: `关联的记录（${relation_id}）不存在`,
                 data: null
             });
         }
 
-        const unpaidAmount = parseFloat(materials[0].wait_account_paid || 0);
+        const hitCount = (materials.length > 0 ? 1 : 0) + (mechanicals.length > 0 ? 1 : 0) + (peoples.length > 0 ? 1 : 0);
+        if (hitCount > 1) {
+            return res.json({
+                code: 400,
+                msg: `关联ID（${relation_id}）在材料/机械/人工中匹配到多条来源，无法确定待付款口径，请确保编号唯一`,
+                data: null
+            });
+        }
+
+        let unpaidAmount = 0;
+        if (materials.length > 0) unpaidAmount = parseFloat(materials[0].wait_account_paid || 0);
+        if (mechanicals.length > 0) unpaidAmount = parseFloat(mechanicals[0].wait_account_paid || 0);
+        if (peoples.length > 0) unpaidAmount = parseFloat(peoples[0].wait_account_paid || 0);
 
         // 3.2 查询该材料所有草稿和审批中状态的流程记录总金额
         // 排除已归档（document_status=10）和已驳回（audit_status=2）的记录
@@ -442,7 +465,8 @@ const approveProcessRecord = async (req, res) => {
             approval_note = '', // 审批通过理由
             next_checker, // 下一级审批人ID
             remark = '', // 备注
-            current_document_status // 前端当前看到的单据状态（用于乐观锁校验）
+            current_document_status, // 前端当前看到的单据状态（用于乐观锁校验）
+            real_amount // 实际审批金额 终审的时候可能会修改 审批金额
         } = req.body;
 
         // 1. 必传参数校验
@@ -456,7 +480,7 @@ const approveProcessRecord = async (req, res) => {
 
         // 2. 校验记录存在性及当前状态
         const existResult = await query(
-            'SELECT id, audit_status, document_status FROM sys_process_record WHERE id = ?',
+            'SELECT id, relation_id, total_amount, audit_status, document_status FROM sys_process_record WHERE id = ?',
             [id]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
@@ -523,6 +547,109 @@ const approveProcessRecord = async (req, res) => {
         const finalMark = approval_note ? `${notePrefix} ${approval_note}` : notePrefix;
         const finalRemark = remark || '';
 
+        // 4.1 终审归档时同步付款金额（只在 4 -> 10 时触发）
+        const isArchiving = current.document_status === 4 && newDocumentStatus === 10;
+        let paymentSync = null;
+        if (isArchiving) {
+            const relationId = current.relation_id;
+            // 如果real_amount 有值则说明可能在最终审批的时候修改了 本次发起审批的金额
+            const payAmount = parseFloat(real_amount || 0) || parseFloat(current.total_amount || 0);
+
+            if (!relationId) {
+                return res.json({
+                    code: 400,
+                    msg: '关联ID为空，无法同步付款金额',
+                    data: null
+                });
+            }
+
+            if (!(payAmount > 0)) {
+                return res.json({
+                    code: 400,
+                    msg: '付款金额必须大于0，无法归档',
+                    data: null
+                });
+            }
+
+            const materialPayResult = await query(
+                'SELECT account_paid, wait_account_paid FROM sys_material_management WHERE material_code = ?',
+                [relationId]
+            );
+            const mechanicalPayResult = await query(
+                'SELECT account_paid, wait_account_paid FROM sys_mechanical_management WHERE mechanical_code = ?',
+                [relationId]
+            );
+            const artificialPayResult = await query(
+                'SELECT account_paid, wait_account_paid FROM sys_artificial_management WHERE artficial_code = ?',
+                [relationId]
+            );
+
+            const materials = Array.isArray(materialPayResult) ? materialPayResult : materialPayResult?.results || [];
+            const mechanicals = Array.isArray(mechanicalPayResult) ? mechanicalPayResult : mechanicalPayResult?.results || [];
+            const artificials = Array.isArray(artificialPayResult) ? artificialPayResult : artificialPayResult?.results || [];
+
+            const hitCount = (materials.length > 0 ? 1 : 0) + (mechanicals.length > 0 ? 1 : 0) + (artificials.length > 0 ? 1 : 0);
+            if (hitCount === 0) {
+                return res.json({
+                    code: 400,
+                    msg: `关联的业务记录（${relationId}）不存在，无法归档同步付款金额`,
+                    data: null
+                });
+            }
+            if (hitCount > 1) {
+                return res.json({
+                    code: 400,
+                    msg: `关联ID（${relationId}）在材料/机械/人工中匹配到多条来源，无法确定付款口径，请确保编号唯一`,
+                    data: null
+                });
+            }
+
+            let targetType = '';
+            let tableName = '';
+            let keyField = '';
+            let row = null;
+
+            if (materials.length > 0) {
+                targetType = 'material';
+                tableName = 'sys_material_management';
+                keyField = 'material_code';
+                row = materials[0];
+            }
+            if (mechanicals.length > 0) {
+                targetType = 'mechanical';
+                tableName = 'sys_mechanical_management';
+                keyField = 'mechanical_code';
+                row = mechanicals[0];
+            }
+            if (artificials.length > 0) {
+                targetType = 'artificial';
+                tableName = 'sys_artificial_management';
+                keyField = 'artficial_code';
+                row = artificials[0];
+            }
+
+            const currentPaid = parseFloat(row?.account_paid || 0);
+            const currentWait = parseFloat(row?.wait_account_paid || 0);
+            const newWait = currentWait - payAmount;
+            if (newWait < 0) {
+                return res.json({
+                    code: 400,
+                    msg: `本次付款金额（¥${payAmount.toFixed(2)}）超过待付款金额（¥${currentWait.toFixed(2)}），无法归档`,
+                    data: null
+                });
+            }
+
+            paymentSync = {
+                relation_id: relationId,
+                payAmount,
+                targetType,
+                tableName,
+                keyField,
+                newAccountPaid: currentPaid + payAmount,
+                newWaitAccountPaid: newWait
+            };
+        }
+
         // 5. 执行更新（包括设置下一级审批人）
         let updateSql = `UPDATE sys_process_record SET
             audit_status = ?,
@@ -561,6 +688,14 @@ const approveProcessRecord = async (req, res) => {
         }
 
         if (affectedRows > 0) {
+            // 终审归档后同步业务表付款金额
+            if (paymentSync) {
+                await query(
+                    `UPDATE ${paymentSync.tableName} SET account_paid = ?, wait_account_paid = ? WHERE ${paymentSync.keyField} = ?`,
+                    [paymentSync.newAccountPaid, paymentSync.newWaitAccountPaid, paymentSync.relation_id]
+                );
+            }
+
             res.json({
                 code: 200,
                 msg: '审批通过成功',
@@ -568,7 +703,16 @@ const approveProcessRecord = async (req, res) => {
                     id,
                     audit_status: newAuditStatus,
                     document_status: newDocumentStatus,
-                    remark: finalMark
+                    remark: finalMark,
+                    paymentSync: paymentSync
+                        ? {
+                            relation_id: paymentSync.relation_id,
+                            payAmount: paymentSync.payAmount,
+                            targetType: paymentSync.targetType,
+                            account_paid: paymentSync.newAccountPaid,
+                            wait_account_paid: paymentSync.newWaitAccountPaid
+                        }
+                        : null
                 }
             });
         } else {

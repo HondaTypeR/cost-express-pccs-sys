@@ -9,6 +9,9 @@ router.post('/add', authMiddleware, controller.addReviewLog);
 // 更新审批日志
 router.post('/update', authMiddleware, controller.updateReviewLog);
 
+// 删除审批日志
+router.post('/delete', authMiddleware, controller.deleteReviewLog);
+
 // 获取审批日志列表
 router.post('/list', authMiddleware, controller.getReviewLogList);
 

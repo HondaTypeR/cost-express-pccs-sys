@@ -48,7 +48,7 @@ router.post('/material/reject', authMiddleware, materialController.rejectMateria
 
 // 机械管理相关路由
 router.get('/mechanical/list', authMiddleware, mechanicalController.getMaterialList);
-router.get('/mechanical/:material_code', authMiddleware, mechanicalController.getMaterialDetail);
+router.get('/mechanical/:mechanical_code', authMiddleware, mechanicalController.getMaterialDetail);
 router.post('/mechanical/add', authMiddleware, mechanicalController.addMaterial);
 router.post('/mechanical/update', authMiddleware, mechanicalController.updateMaterial);
 router.post('/mechanical/delete', authMiddleware, mechanicalController.deleteMaterial);
@@ -58,7 +58,7 @@ router.post('/mechanical/reject', authMiddleware, mechanicalController.rejectMat
 
 // 人工管理相关路由
 router.get('/artificial/list', authMiddleware, artificialController.getMaterialList);
-router.get('/artificial/:material_code', authMiddleware, artificialController.getMaterialDetail);
+router.get('/artificial/:artficial_code', authMiddleware, artificialController.getMaterialDetail);
 router.post('/artificial/add', authMiddleware, artificialController.addMaterial);
 router.post('/artificial/update', authMiddleware, artificialController.updateMaterial);
 router.post('/artificial/delete', authMiddleware, artificialController.deleteMaterial);

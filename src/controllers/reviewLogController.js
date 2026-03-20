@@ -6,6 +6,8 @@ const addReviewLog = async (req, res) => {
         const {
             link_info = '',
             log_type = '',
+            approval_money = '',
+            real_approval_money = '',
             level_one_reviewer = '',
             level_one_review_status = '',
             level_one_review_remark = '',
@@ -42,14 +44,16 @@ const addReviewLog = async (req, res) => {
         const insertResult = await query(
             `INSERT INTO sys_review_log (
                 link_info, log_type,
+                approval_money, real_approval_money,
                 level_one_reviewer, level_one_review_status, level_one_review_remark,
                 level_two_reviewer, level_two_review_status, level_two_review_remark,
                 level_three_reviewer, level_three_review_status, level_three_review_remark,
                 level_four_reviewer, level_four_review_status, level_four_review_remark,
                 level_five_reviewer, level_five_review_status, level_five_review_remark
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?,?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 link_info, log_type,
+                approval_money, real_approval_money,
                 level_one_reviewer, level_one_review_status, level_one_review_remark,
                 level_two_reviewer, level_two_review_status, level_two_review_remark,
                 level_three_reviewer, level_three_review_status, level_three_review_remark,
@@ -64,6 +68,101 @@ const addReviewLog = async (req, res) => {
             code: 200,
             msg: '新增成功',
             data: { id: insertId }
+        });
+    } catch (err) {
+        res.json({
+            code: 500,
+            msg: '服务器错误：' + err.message,
+            data: null
+        });
+    }
+};
+
+// 4. 删除审批日志（物理删除）
+const deleteReviewLog = async (req, res) => {
+    try {
+        const { id, log_type, link_info } = req.body || {};
+
+        // 优先按 id 删除
+        if (id) {
+            const existResult = await query(
+                'SELECT id FROM sys_review_log WHERE id = ?',
+                [id]
+            );
+            const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
+            if (exist.length === 0) {
+                return res.json({
+                    code: 404,
+                    msg: '记录不存在，无法删除',
+                    data: null
+                });
+            }
+
+            const deleteResult = await query(
+                'DELETE FROM sys_review_log WHERE id = ?',
+                [id]
+            );
+            const affectedRows = deleteResult.affectedRows || (Array.isArray(deleteResult) ? deleteResult[0]?.affectedRows : 0);
+
+            if (affectedRows > 0) {
+                return res.json({
+                    code: 200,
+                    msg: '删除成功',
+                    data: { id }
+                });
+            }
+
+            return res.json({
+                code: 400,
+                msg: '删除失败，未执行删除操作',
+                data: null
+            });
+        }
+
+        // 按 log_type + link_info 批量删除
+        if (!log_type || !link_info) {
+            return res.json({
+                code: 400,
+                msg: '请传id，或同时传log_type和link_info',
+                data: null
+            });
+        }
+
+        const countResult = await query(
+            'SELECT COUNT(*) as count FROM sys_review_log WHERE log_type = ? AND link_info = ?',
+            [log_type, link_info]
+        );
+        const matchCount = Number((Array.isArray(countResult) ? countResult[0] : countResult?.results?.[0])?.count || 0);
+        if (matchCount === 0) {
+            return res.json({
+                code: 404,
+                msg: '未找到可删除的记录',
+                data: null
+            });
+        }
+
+        const deleteResult = await query(
+            'DELETE FROM sys_review_log WHERE log_type = ? AND link_info = ?',
+            [log_type, link_info]
+        );
+        const affectedRows = deleteResult.affectedRows || (Array.isArray(deleteResult) ? deleteResult[0]?.affectedRows : 0);
+
+        if (affectedRows > 0) {
+            return res.json({
+                code: 200,
+                msg: '删除成功',
+                data: {
+                    log_type,
+                    link_info,
+                    deletedCount: affectedRows
+                }
+            });
+        }
+
+        return res.json({
+            code: 400,
+            msg: '删除失败，未执行删除操作',
+            data: null
         });
     } catch (err) {
         res.json({
@@ -90,6 +189,8 @@ const updateReviewLog = async (req, res) => {
         const updatableFields = [
             'link_info',
             'log_type',
+            'approval_money',
+            'real_approval_money',
             'level_one_reviewer',
             'level_one_review_status',
             'level_one_review_remark',
@@ -218,7 +319,7 @@ const getReviewLogList = async (req, res) => {
 
         const listResult = await query(
             `SELECT 
-                id, link_info, log_type,
+                id, link_info, log_type, approval_money, real_approval_money,
                 level_one_reviewer, level_one_review_status, level_one_review_remark,
                 level_two_reviewer, level_two_review_status, level_two_review_remark,
                 level_three_reviewer, level_three_review_status, level_three_review_remark,
@@ -250,5 +351,6 @@ const getReviewLogList = async (req, res) => {
 module.exports = {
     addReviewLog,
     getReviewLogList,
-    updateReviewLog
+    updateReviewLog,
+    deleteReviewLog
 };

@@ -786,7 +786,7 @@ const getAllMaterialData = async (req, res) => {
         const supplierId = supplier || supplier_unit;
 
         // 构建查询条件（supplier_unit 是供应商ID，project_id 是项目ID，精确匹配）
-        let whereSql = '1=1';
+        let whereSql = '1=1 AND m.document_status = 3 AND m.audit_status = 1';
         const params = [];
         if (supplierId) {
             whereSql += ' AND m.supplier_unit = ?';
@@ -851,7 +851,7 @@ const getAllMaterialData = async (req, res) => {
                 m.account_paid,
                 m.wait_account_paid,
                 'mechanical' AS data_type,
-                m.material_code AS code,
+                m.mechanical_code AS code,
                 m.project_name,
                 m.audit_status,
                 m.document_status,
@@ -883,7 +883,7 @@ const getAllMaterialData = async (req, res) => {
                 m.account_paid,
                 m.wait_account_paid,
                 'artificial' AS data_type,
-                m.material_code AS code,
+                m.artficial_code AS code,
                 m.project_name,
                 m.audit_status,
                 m.document_status,

@@ -47,7 +47,7 @@ const getMaterialList = async (req, res) => {
 
         // 查询列表并拼接状态文本
         const listResult = await query(
-            `SELECT material_code, project_id, project_name, supplier_unit,
+            `SELECT mechanical_code, project_id, project_name, supplier_unit,
               phase_num, material_name, unit, quantity, unit_price, total_price,
               acceptance_note, handler, reviewer, auditor, related_contract,
               account_paid, wait_account_paid,
@@ -82,10 +82,10 @@ const getMaterialList = async (req, res) => {
 // 2. 获取机械管理详情（按material_code查询）
 const getMaterialDetail = async (req, res) => {
     try {
-        const { material_code } = req.params;
+        const { mechanical_code } = req.params;
 
         // 参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({
                 code: 400,
                 msg: '机械编号不能为空且必须为数字',
@@ -95,12 +95,12 @@ const getMaterialDetail = async (req, res) => {
 
         // 查询详情
         const detailResult = await query(
-            `SELECT material_code, project_id, project_name, supplier_unit,
+            `SELECT mechanical_code, project_id, project_name, supplier_unit,
               phase_num, material_name, unit, quantity, unit_price, total_price,
               acceptance_note, handler, reviewer, auditor, related_contract,
               audit_status, document_status, create_time, update_time
-       FROM sys_mechanical_management WHERE material_code = ?`,
-            [material_code]
+       FROM sys_mechanical_management WHERE mechanical_code = ?`,
+            [mechanical_code]
         );
         const detail = Array.isArray(detailResult) ? detailResult : detailResult?.results || [];
 
@@ -261,7 +261,7 @@ const addMaterial = async (req, res) => {
         res.json({
             code: 200,
             msg: '新增机械记录成功',
-            data: { material_code: materialCode }
+            data: { mechanical_code: materialCode }
         });
     } catch (err) {
         res.json({
@@ -276,14 +276,14 @@ const addMaterial = async (req, res) => {
 const updateMaterial = async (req, res) => {
     try {
         const {
-            material_code, project_id, project_name, supplier_unit, phase_num,
+            mechanical_code, project_id, project_name, supplier_unit, phase_num,
             material_name, unit, quantity, unit_price, total_price,
             acceptance_note, handler, reviewer, auditor, related_contract,
             account_paid, audit_status, document_status
         } = req.body;
 
         // 基础参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({
                 code: 400,
                 msg: '机械编号不能为空且必须为数字',
@@ -307,8 +307,8 @@ const updateMaterial = async (req, res) => {
 
         // 校验机械记录是否存在
         const existResult = await query(
-            'SELECT material_code FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'SELECT mechanical_code FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
         if (exist.length === 0) {
@@ -375,8 +375,8 @@ const updateMaterial = async (req, res) => {
 
                 // 3. 查询该合同下所有机械管理的总价（排除当前记录）
                 const mechanicalSumResult = await query(
-                    'SELECT COALESCE(SUM(total_price), 0) as total FROM sys_mechanical_management WHERE related_contract = ? AND material_code != ?',
-                    [related_contract, material_code]
+                    'SELECT COALESCE(SUM(total_price), 0) as total FROM sys_mechanical_management WHERE related_contract = ? AND mechanical_code != ?',
+                    [related_contract, mechanical_code]
                 );
                 const mechanicalSum = Number((Array.isArray(mechanicalSumResult) ? mechanicalSumResult[0] : mechanicalSumResult?.results?.[0])?.total || 0);
 
@@ -412,13 +412,13 @@ const updateMaterial = async (req, res) => {
         total_price = ?, acceptance_note = ?, handler = ?, reviewer = ?,
         auditor = ?, related_contract = ?, account_paid = ?, wait_account_paid = ?,
         audit_status = ?, document_status = ?
-      WHERE material_code = ?`,
+      WHERE mechanical_code = ?`,
             [
                 project_id, project_name, supplier_unit || '', phase_num || '',
                 material_name || '', unit || '', finalQuantity, finalUnitPrice,
                 finalTotalPrice, acceptance_note || '', handler || '', reviewer || '',
                 auditor || '', related_contract || '', finalAccountPaid, waitAccountPaid,
-                audit_status || 0, document_status || 0, material_code
+                audit_status || 0, document_status || 0, mechanical_code
             ]
         );
 
@@ -427,7 +427,7 @@ const updateMaterial = async (req, res) => {
             res.json({
                 code: 200,
                 msg: '修改机械记录成功',
-                data: { material_code }
+                data: { mechanical_code }
             });
         } else {
             res.json({
@@ -448,10 +448,10 @@ const updateMaterial = async (req, res) => {
 // 5. 删除机械管理记录（改用POST方法）
 const deleteMaterial = async (req, res) => {
     try {
-        const { material_code } = req.body;
+        const { mechanical_code } = req.body;
 
         // 参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({
                 code: 400,
                 msg: '机械编号不能为空且必须为数字',
@@ -461,8 +461,8 @@ const deleteMaterial = async (req, res) => {
 
         // 校验记录是否存在
         const existResult = await query(
-            'SELECT material_code, document_status FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'SELECT mechanical_code, document_status FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
         if (exist.length === 0) {
@@ -485,8 +485,8 @@ const deleteMaterial = async (req, res) => {
 
         // 执行删除
         const deleteResult = await query(
-            'DELETE FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'DELETE FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
 
         const affectedRows = deleteResult.affectedRows || (Array.isArray(deleteResult) ? deleteResult[0]?.affectedRows : 0);
@@ -494,7 +494,7 @@ const deleteMaterial = async (req, res) => {
             res.json({
                 code: 200,
                 msg: '删除机械记录成功',
-                data: { material_code }
+                data: { mechanical_code }
             });
         } else {
             res.json({
@@ -515,14 +515,14 @@ const deleteMaterial = async (req, res) => {
 const submitApproval = async (req, res) => {
     try {
         const {
-            material_code, // 机械编号（必填）
+            mechanical_code, // 机械编号（必填）
             user_id, // 审批人ID（userId）
             document_status, // 当前单据状态
             approval_time // 当前时间（不传则用系统时间）
         } = req.body;
 
         // 1. 必传参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({
                 code: 400,
                 msg: '机械编号不能为空且必须为数字',
@@ -546,8 +546,8 @@ const submitApproval = async (req, res) => {
 
         // 2. 校验机械记录是否存在
         const existResult = await query(
-            'SELECT material_code, document_status, auditor FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'SELECT mechanical_code, document_status, auditor FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
         if (exist.length === 0) {
@@ -579,16 +579,16 @@ const submitApproval = async (req, res) => {
                 reviewer = ?, 
                 document_status = 1, 
                 update_time = ? 
-                WHERE material_code = ?`;
-            updateParams = [user_id, finalApprovalTime, material_code];
+                WHERE mechanical_code = ?`;
+            updateParams = [user_id, finalApprovalTime, mechanical_code];
         } else if (document_status == 2) {
             // document_status = 2 时，更新 auditor
             updateSql = `UPDATE sys_mechanical_management SET
                 auditor = ?, 
                 document_status = 2, 
                 update_time = ? 
-                WHERE material_code = ?`;
-            updateParams = [user_id, finalApprovalTime, material_code];
+                WHERE mechanical_code = ?`;
+            updateParams = [user_id, finalApprovalTime, mechanical_code];
         }
 
         const updateResult = await query(updateSql, updateParams);
@@ -599,7 +599,7 @@ const submitApproval = async (req, res) => {
             let params;
             if (document_status == 1) {
                 params = {
-                    material_code,
+                    mechanical_code,
                     reviewer: user_id, // 审核人ID
                     document_status: 1, // 审批后状态改为已提交
                     approval_time: finalApprovalTime // 审批时间
@@ -607,7 +607,7 @@ const submitApproval = async (req, res) => {
             }
             if (document_status === 2) {
                 params = {
-                    material_code,
+                    mechanical_code,
                     auditor: user_id, // 审核人ID
                     document_status: 2, // 审批后状态改为已提交
                     approval_time: finalApprovalTime // 审批时间
@@ -638,20 +638,20 @@ const submitApproval = async (req, res) => {
 const approveMaterial = async (req, res) => {
     try {
         const {
-            material_code,
+            mechanical_code,
             user_id,
             approval_note = '', // 审批通过理由
         } = req.body;
 
         // 1. 必传参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({ code: 400, msg: '机械编号不能为空且必须为数字', data: null });
         }
 
         // 2. 校验记录存在性及当前状态
         const existResult = await query(
-            'SELECT material_code, audit_status, document_status FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'SELECT mechanical_code, audit_status, document_status FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
         if (exist.length === 0) {
@@ -689,8 +689,8 @@ const approveMaterial = async (req, res) => {
         auditor = ?, -- 审核人ID
         mark = ?, -- 审批通过理由（存入mark字段）
         update_time = NOW()
-      WHERE material_code = ?`,
-            [newDocumentStatus, user_id, finalMark, material_code]
+      WHERE mechanical_code = ?`,
+            [newDocumentStatus, user_id, finalMark, mechanical_code]
         );
 
         const affectedRows = updateResult.affectedRows || (Array.isArray(updateResult) ? updateResult[0]?.affectedRows : 0);
@@ -699,7 +699,7 @@ const approveMaterial = async (req, res) => {
                 code: 200,
                 msg: '审批通过成功',
                 data: {
-                    material_code,
+                    mechanical_code,
                     audit_status: 1,
                     document_status: newDocumentStatus,
                     auditor: user_id,
@@ -718,13 +718,13 @@ const approveMaterial = async (req, res) => {
 const rejectMaterial = async (req, res) => {
     try {
         const {
-            material_code,
+            mechanical_code,
             user_id,
             reject_note = '' // 审批驳回理由（必填）
         } = req.body;
 
         // 1. 必传参数校验
-        if (!material_code || isNaN(material_code)) {
+        if (!mechanical_code || isNaN(mechanical_code)) {
             return res.json({ code: 400, msg: '机械编号不能为空且必须为数字', data: null });
         }
         if (!reject_note) {
@@ -733,8 +733,8 @@ const rejectMaterial = async (req, res) => {
 
         // 2. 校验记录存在性及当前状态
         const existResult = await query(
-            'SELECT material_code, audit_status, document_status FROM sys_mechanical_management WHERE material_code = ?',
-            [material_code]
+            'SELECT mechanical_code, audit_status, document_status FROM sys_mechanical_management WHERE mechanical_code = ?',
+            [mechanical_code]
         );
         const exist = Array.isArray(existResult) ? existResult : existResult?.results || [];
         if (exist.length === 0) {
@@ -755,8 +755,8 @@ const rejectMaterial = async (req, res) => {
         auditor = ?, -- 审核人ID
         mark = ?, -- 审批驳回理由（存入mark字段）
         update_time = NOW()
-      WHERE material_code = ?`,
-            [user_id, finalMark, material_code]
+      WHERE mechanical_code = ?`,
+            [user_id, finalMark, mechanical_code]
         );
 
         const affectedRows = updateResult.affectedRows || (Array.isArray(updateResult) ? updateResult[0]?.affectedRows : 0);
@@ -765,7 +765,7 @@ const rejectMaterial = async (req, res) => {
                 code: 200,
                 msg: '审批驳回成功，单据已退回草稿',
                 data: {
-                    material_code,
+                    mechanical_code,
                     audit_status: 2,
                     document_status: 0,
                     auditor: user_id,
