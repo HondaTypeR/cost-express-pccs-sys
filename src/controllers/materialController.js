@@ -41,14 +41,14 @@ const getMaterialList = async (req, res) => {
             params.push(`%${supplier_unit}%`);
         }
         if (keyword) {
-            whereSql += ' AND (project_name LIKE ? OR material_name LIKE ? OR phase_num LIKE ?)';
-            params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+            whereSql += ' AND (project_name LIKE ? OR material_name LIKE ? OR spec_model LIKE ? OR phase_num LIKE ?)';
+            params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
         }
 
         // 查询列表并拼接状态文本
         const listResult = await query(
             `SELECT material_code, project_id, project_name, supplier_unit,
-              phase_num, material_name, unit, quantity, unit_price, total_price,
+              phase_num, material_name, spec_model, unit, quantity, unit_price, total_price,
               acceptance_note, handler, reviewer, auditor, related_contract,
               account_paid, wait_account_paid,
               audit_status, document_status, create_time, update_time
@@ -96,7 +96,7 @@ const getMaterialDetail = async (req, res) => {
         // 查询详情
         const detailResult = await query(
             `SELECT material_code, project_id, project_name, supplier_unit,
-              phase_num, material_name, unit, quantity, unit_price, total_price,
+              phase_num, material_name, spec_model, unit, quantity, unit_price, total_price,
               acceptance_note, handler, reviewer, auditor, related_contract,
               audit_status, document_status, create_time, update_time
        FROM sys_material_management WHERE material_code = ?`,
@@ -138,7 +138,7 @@ const addMaterial = async (req, res) => {
     try {
         const {
             project_id, project_name, supplier_unit = '', phase_num = '',
-            material_name = '', unit = '', quantity = 0.00, unit_price = 0.00,
+            material_name = '', spec_model = '', unit = '', quantity = 0.00, unit_price = 0.00,
             total_price, acceptance_note = '', handler = '', reviewer = '',
             auditor = '', related_contract = '', audit_status = 0,
             document_status = 0
@@ -243,13 +243,13 @@ const addMaterial = async (req, res) => {
         // account_paid 默认为 0，wait_account_paid 默认等于 total_price
         const insertResult = await query(
             `INSERT INTO sys_material_management (
-        project_id, project_name, supplier_unit, phase_num, material_name,
+        project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
         unit, quantity, unit_price, total_price, acceptance_note,
         handler, reviewer, auditor, related_contract, account_paid, wait_account_paid,
         audit_status, document_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                project_id, project_name, supplier_unit, phase_num, material_name,
+                project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
                 unit, quantity, unit_price, finalTotalPrice, acceptance_note,
                 handler, reviewer, auditor, related_contract, 0, finalTotalPrice,
                 audit_status, document_status
@@ -275,7 +275,7 @@ const updateMaterial = async (req, res) => {
     try {
         const {
             material_code, project_id, project_name, supplier_unit, phase_num,
-            material_name, unit, quantity, unit_price, total_price,
+            material_name, spec_model, unit, quantity, unit_price, total_price,
             acceptance_note, handler, reviewer, auditor, related_contract,
             account_paid, audit_status, document_status
         } = req.body;
@@ -406,14 +406,14 @@ const updateMaterial = async (req, res) => {
         const updateResult = await query(
             `UPDATE sys_material_management SET
         project_id = ?, project_name = ?, supplier_unit = ?, phase_num = ?,
-        material_name = ?, unit = ?, quantity = ?, unit_price = ?,
+        material_name = ?, spec_model = ?, unit = ?, quantity = ?, unit_price = ?,
         total_price = ?, acceptance_note = ?, handler = ?, reviewer = ?,
         auditor = ?, related_contract = ?, account_paid = ?, wait_account_paid = ?,
         audit_status = ?, document_status = ?
       WHERE material_code = ?`,
             [
                 project_id, project_name, supplier_unit || '', phase_num || '',
-                material_name || '', unit || '', finalQuantity, finalUnitPrice,
+                material_name || '', spec_model || '', unit || '', finalQuantity, finalUnitPrice,
                 finalTotalPrice, acceptance_note || '', handler || '', reviewer || '',
                 auditor || '', related_contract || '', finalAccountPaid, waitAccountPaid,
                 audit_status || 0, document_status || 0, material_code
@@ -782,7 +782,7 @@ const rejectMaterial = async (req, res) => {
 const getAllMaterialData = async (req, res) => {
     try {
         // 支持 supplier 或 supplier_unit 参数名，以及 data_type 类型过滤和 project_id 项目过滤
-        const { supplier = '', supplier_unit = '', data_type = '', project_id = '' } = req.query;
+        const { supplier = '', supplier_unit = '', data_type = '', project_id = '', phase_num = '' } = req.query;
         const supplierId = supplier || supplier_unit;
 
         // 构建查询条件（supplier_unit 是供应商ID，project_id 是项目ID，精确匹配）
@@ -795,6 +795,10 @@ const getAllMaterialData = async (req, res) => {
         if (project_id) {
             whereSql += ' AND m.project_id = ?';
             params.push(project_id);
+        }
+        if (phase_num) {
+            whereSql += ' AND m.phase_num = ?';
+            params.push(phase_num);
         }
 
         // 根据 data_type 决定查询哪些表
@@ -810,6 +814,7 @@ const getAllMaterialData = async (req, res) => {
                 `SELECT 
                 m.supplier_unit AS supplier,
                 m.material_name,
+                m.spec_model,
                 '' AS machinery_name,
                 m.unit,
                 m.quantity,
@@ -824,6 +829,7 @@ const getAllMaterialData = async (req, res) => {
                 m.audit_status,
                 m.document_status,
                 m.create_time,
+                m.phase_num,
                 s.supplier_bank,
                 s.supplier_account
             FROM sys_material_management m
@@ -843,6 +849,7 @@ const getAllMaterialData = async (req, res) => {
                 m.supplier_unit AS supplier,
                 '' AS material_name,
                 m.material_name AS machinery_name,
+                m.spec_model,
                 m.unit,
                 m.quantity,
                 m.unit_price AS contract_unit_price,
@@ -856,6 +863,7 @@ const getAllMaterialData = async (req, res) => {
                 m.audit_status,
                 m.document_status,
                 m.create_time,
+                m.phase_num,
                 s.supplier_bank,
                 s.supplier_account
             FROM sys_mechanical_management m
@@ -874,6 +882,7 @@ const getAllMaterialData = async (req, res) => {
                 `SELECT 
                 m.supplier_unit AS supplier,
                 m.material_name,
+                m.spec_model,
                 '' AS machinery_name,
                 m.unit,
                 m.quantity,
@@ -888,6 +897,7 @@ const getAllMaterialData = async (req, res) => {
                 m.audit_status,
                 m.document_status,
                 m.create_time,
+                m.phase_num,
                 s.supplier_bank,
                 s.supplier_account
             FROM sys_artificial_management m

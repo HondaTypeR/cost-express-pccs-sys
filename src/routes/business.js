@@ -29,6 +29,16 @@ router.get('/budget/import/result/:task_id', authMiddleware, contractImportContr
 // 查询导入任务列表（sys_import_task）
 router.get('/budget/import/find/tasks', authMiddleware, contractImportController.getBudgetImportTaskList);
 
+// 预算表查询（sys_budget，分页 + 模糊搜索）
+router.get('/budget/list', authMiddleware, contractImportController.getBudgetList);
+
+// 预算表新增（sys_budget）
+router.post('/budget/add', authMiddleware, contractImportController.addBudget);
+
+// 预算表编辑/删除（sys_budget）
+router.post('/budget/update', authMiddleware, contractImportController.updateBudget);
+router.post('/budget/delete', authMiddleware, contractImportController.deleteBudgetBatch);
+
 // 获取项目列表
 router.get('/list', authMiddleware, projectController.getProjectList);
 // 获取项目详情

@@ -43,6 +43,8 @@ const ensureBudgetTable = async () => {
             project_id VARCHAR(50) NOT NULL,
             project_name VARCHAR(255) DEFAULT '',
             import_task_id BIGINT NOT NULL,
+            types VARCHAR(50) NOT NULL DEFAULT 'other',
+            issue VARCHAR(50) NOT NULL DEFAULT '全部',
             name VARCHAR(255) NOT NULL,
             spec_model VARCHAR(255) NOT NULL DEFAULT '',
             unit VARCHAR(50) DEFAULT '',
@@ -56,6 +58,25 @@ const ensureBudgetTable = async () => {
             INDEX idx_project_id (project_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
     );
+
+    // 表已存在时，补齐缺失字段
+    try {
+        const typesCol = await query("SHOW COLUMNS FROM sys_budget LIKE 'types'");
+        const typesList = Array.isArray(typesCol) ? typesCol : typesCol?.results || [];
+        if (typesList.length === 0) {
+            await query("ALTER TABLE sys_budget ADD COLUMN types VARCHAR(50) NOT NULL DEFAULT 'other' AFTER import_task_id");
+        }
+    } catch (e) {
+    }
+
+    try {
+        const issueCol = await query("SHOW COLUMNS FROM sys_budget LIKE 'issue'");
+        const issueList = Array.isArray(issueCol) ? issueCol : issueCol?.results || [];
+        if (issueList.length === 0) {
+            await query("ALTER TABLE sys_budget ADD COLUMN issue VARCHAR(50) NOT NULL DEFAULT '全部' AFTER types");
+        }
+    } catch (e) {
+    }
 };
 
 const getProjectNameById = async (projectId) => {
@@ -110,7 +131,7 @@ const resolveExcelFilePathFromBody = (body = {}) => {
     return { ok: true, msg: 'ok', filePath, fileName: fileNameFromBody };
 };
 
-const runBudgetImportTask = async (taskId, filePath, projectId) => {
+const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) => {
     await query(
         'UPDATE sys_import_task SET status = 1, message = ?, update_time = NOW() WHERE task_id = ?',
         ['处理中', taskId]
@@ -175,20 +196,22 @@ const runBudgetImportTask = async (taskId, filePath, projectId) => {
         try {
             await query(
                 `INSERT INTO sys_budget (
-                    project_id, project_name, import_task_id,
+                    project_id, project_name, import_task_id, types, issue,
                     name, spec_model, unit,
                     quantity, budget_unit_price, budget_total_price
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     project_name = VALUES(project_name),
                     import_task_id = VALUES(import_task_id),
+                    types = VALUES(types),
+                    issue = VALUES(issue),
                     unit = VALUES(unit),
                     quantity = VALUES(quantity),
                     budget_unit_price = VALUES(budget_unit_price),
                     budget_total_price = VALUES(budget_total_price),
                     update_time = NOW()`,
                 [
-                    item.project_id, item.project_name, item.import_task_id,
+                    item.project_id, item.project_name, item.import_task_id, item.types, item.issue,
                     item.name, item.spec_model, item.unit,
                     item.quantity, item.budget_unit_price, item.budget_total_price
                 ]
@@ -207,13 +230,13 @@ const runBudgetImportTask = async (taskId, filePath, projectId) => {
         if (batchItems.length === 0) return;
 
         const valuesSql = batchItems
-            .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             .join(',');
         const params = [];
         for (const wrapper of batchItems) {
             const item = wrapper.item;
             params.push(
-                item.project_id, item.project_name, item.import_task_id,
+                item.project_id, item.project_name, item.import_task_id, item.types, item.issue,
                 item.name, item.spec_model, item.unit,
                 item.quantity, item.budget_unit_price, item.budget_total_price
             );
@@ -222,13 +245,15 @@ const runBudgetImportTask = async (taskId, filePath, projectId) => {
         try {
             await query(
                 `INSERT INTO sys_budget (
-                    project_id, project_name, import_task_id,
+                    project_id, project_name, import_task_id, types, issue,
                     name, spec_model, unit,
                     quantity, budget_unit_price, budget_total_price
                 ) VALUES ${valuesSql}
                 ON DUPLICATE KEY UPDATE
                     project_name = VALUES(project_name),
                     import_task_id = VALUES(import_task_id),
+                    types = VALUES(types),
+                    issue = VALUES(issue),
                     unit = VALUES(unit),
                     quantity = VALUES(quantity),
                     budget_unit_price = VALUES(budget_unit_price),
@@ -276,6 +301,8 @@ const runBudgetImportTask = async (taskId, filePath, projectId) => {
                 project_id: String(projectId || '').trim(),
                 project_name: String(projectName || '').trim(),
                 import_task_id: taskId,
+                types: String(types || 'other').trim() || 'other',
+                issue: String(issue || '全部').trim() || '全部',
                 name,
                 spec_model: specModel,
                 unit,
@@ -311,7 +338,7 @@ const submitBudgetImportTask = async (req, res) => {
     try {
         await ensureImportTaskTables();
 
-        const { project_id } = req.body || {};
+        const { project_id, types = 'other', issue = '全部' } = req.body || {};
         if (!project_id) {
             return res.json({ code: 400, msg: 'project_id不能为空', data: null });
         }
@@ -332,7 +359,7 @@ const submitBudgetImportTask = async (req, res) => {
 
         setImmediate(async () => {
             try {
-                await runBudgetImportTask(taskId, resolved.filePath, project_id);
+                await runBudgetImportTask(taskId, resolved.filePath, project_id, types, issue);
             } catch (err) {
                 try {
                     await ensureImportTaskTables();
@@ -405,6 +432,204 @@ const getBudgetImportTaskList = async (req, res) => {
         const tasks = Array.isArray(taskResult) ? taskResult : taskResult?.results || [];
         res.json({ code: 200, msg: '查询成功', data: tasks });
     } catch (err) {
+        res.json({ code: 500, msg: '服务器错误：' + err.message, data: null });
+    }
+};
+
+const getBudgetList = async (req, res) => {
+    try {
+        await ensureBudgetTable();
+
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const pageSizeRaw = parseInt(req.query.pageSize, 10) || 20;
+        const pageSize = Math.min(Math.max(pageSizeRaw, 1), 200);
+        const offset = (page - 1) * pageSize;
+
+        const project_id = String(req.query.project_id || '').trim();
+        const name = String(req.query.name || '').trim();
+        const spec_model = String(req.query.spec_model || '').trim();
+        const types = String(req.query.types || '').trim();
+        const issue = String(req.query.issue || '').trim();
+
+        let whereSql = '1=1';
+        const params = [];
+
+        if (project_id) {
+            whereSql += ' AND project_id = ?';
+            params.push(project_id);
+        }
+
+        if (types && types !== 'other') {
+            whereSql += ' AND types LIKE ?';
+            params.push(`%${types}%`);
+        }
+        if (issue && issue !== 'all') {
+            whereSql += ' AND issue LIKE ?';
+            params.push(`%${issue}%`);
+        }
+        if (name) {
+            whereSql += ' AND name LIKE ?';
+            params.push(`%${name}%`);
+        }
+
+        if (spec_model) {
+            whereSql += ' AND spec_model LIKE ?';
+            params.push(`%${spec_model}%`);
+        }
+
+        const countResult = await query(
+            `SELECT COUNT(1) AS total FROM sys_budget WHERE ${whereSql}`,
+            params
+        );
+        const countList = Array.isArray(countResult) ? countResult : countResult?.results || [];
+        const total = countList.length > 0 ? Number(countList[0].total) || 0 : 0;
+
+        const listResult = await query(
+            `SELECT * FROM sys_budget WHERE ${whereSql} ORDER BY update_time DESC, budget_id DESC LIMIT ${offset}, ${pageSize}`,
+            params
+        );
+        const list = Array.isArray(listResult) ? listResult : listResult?.results || [];
+
+        res.json({
+            code: 200,
+            msg: '查询成功',
+            data: {
+                list,
+                page,
+                pageSize,
+                total
+            }
+        });
+    } catch (err) {
+        res.json({ code: 500, msg: '服务器错误：' + err.message, data: null });
+    }
+};
+
+const updateBudget = async (req, res) => {
+    try {
+        await ensureBudgetTable();
+
+        const body = req.body || {};
+        const budget_id = body.budget_id;
+        if (!budget_id) {
+            return res.json({ code: 400, msg: 'budget_id不能为空', data: null });
+        }
+
+        const allowFields = [
+            'project_id',
+            'project_name',
+            'import_task_id',
+            'types',
+            'issue',
+            'name',
+            'spec_model',
+            'unit',
+            'quantity',
+            'budget_unit_price',
+            'budget_total_price'
+        ];
+
+        const setSqlParts = [];
+        const params = [];
+
+        for (const f of allowFields) {
+            if (Object.prototype.hasOwnProperty.call(body, f)) {
+                setSqlParts.push(`${f} = ?`);
+                params.push(body[f]);
+            }
+        }
+
+        if (setSqlParts.length === 0) {
+            return res.json({ code: 400, msg: '没有可更新的字段', data: null });
+        }
+
+        setSqlParts.push('update_time = NOW()');
+        params.push(budget_id);
+
+        await query(
+            `UPDATE sys_budget SET ${setSqlParts.join(', ')} WHERE budget_id = ?`,
+            params
+        );
+
+        res.json({ code: 200, msg: '更新成功', data: null });
+    } catch (err) {
+        res.json({ code: 500, msg: '服务器错误：' + err.message, data: null });
+    }
+};
+
+const deleteBudgetBatch = async (req, res) => {
+    try {
+        await ensureBudgetTable();
+
+        const { budget_ids } = req.body || {};
+        if (!Array.isArray(budget_ids) || budget_ids.length === 0) {
+            return res.json({ code: 400, msg: 'budget_ids不能为空', data: null });
+        }
+
+        const ids = budget_ids
+            .map(v => Number(v))
+            .filter(v => Number.isFinite(v) && v > 0);
+        if (ids.length === 0) {
+            return res.json({ code: 400, msg: 'budget_ids无有效值', data: null });
+        }
+
+        const placeholders = ids.map(() => '?').join(',');
+        await query(`DELETE FROM sys_budget WHERE budget_id IN (${placeholders})`, ids);
+
+        res.json({ code: 200, msg: '删除成功', data: null });
+    } catch (err) {
+        res.json({ code: 500, msg: '服务器错误：' + err.message, data: null });
+    }
+};
+
+const addBudget = async (req, res) => {
+    try {
+        await ensureBudgetTable();
+
+        const body = req.body || {};
+        const project_id = String(body.project_id || '').trim();
+        const name = String(body.name || '').trim();
+        const spec_model = String(body.spec_model || '').trim();
+
+        if (!project_id) {
+            return res.json({ code: 400, msg: 'project_id不能为空', data: null });
+        }
+        if (!name) {
+            return res.json({ code: 400, msg: 'name不能为空', data: null });
+        }
+        if (!spec_model) {
+            return res.json({ code: 400, msg: 'spec_model不能为空', data: null });
+        }
+
+        const project_name = await getProjectNameById(project_id);
+
+        const types = String(body.types || 'other').trim() || 'other';
+        const issue = String(body.issue || '全部').trim() || '全部';
+        const unit = String(body.unit || '').trim();
+
+        const quantity = Number(body.quantity ?? 0) || 0;
+        const budget_unit_price = Number(body.budget_unit_price ?? 0) || 0;
+        const budget_total_price = Number(body.budget_total_price ?? 0) || 0;
+
+        const insertResult = await query(
+            `INSERT INTO sys_budget (
+                project_id, project_name, import_task_id, types, issue,
+                name, spec_model, unit,
+                quantity, budget_unit_price, budget_total_price
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                project_id, project_name, 0, types, issue,
+                name, spec_model, unit,
+                quantity, budget_unit_price, budget_total_price
+            ]
+        );
+
+        const budget_id = insertResult.insertId || (Array.isArray(insertResult) ? insertResult[0]?.insertId : null);
+        res.json({ code: 200, msg: '新增成功', data: { budget_id } });
+    } catch (err) {
+        if (err && (err.code === 'ER_DUP_ENTRY' || err.errno === 1062)) {
+            return res.json({ code: 400, msg: '数据已存在（同项目下名称+规格型号重复）', data: null });
+        }
         res.json({ code: 500, msg: '服务器错误：' + err.message, data: null });
     }
 };
@@ -746,5 +971,9 @@ module.exports = {
     submitBudgetImportTask,
     getBudgetImportTaskStatus,
     getBudgetImportTaskResult,
-    getBudgetImportTaskList
+    getBudgetImportTaskList,
+    getBudgetList,
+    addBudget,
+    updateBudget,
+    deleteBudgetBatch
 };
