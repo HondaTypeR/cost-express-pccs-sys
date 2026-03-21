@@ -18,12 +18,28 @@ const getMaterialList = async (req, res) => {
     try {
         const {
             project_id = '', keyword = '', audit_status = '',
-            document_status = '', supplier_unit = ''
+            document_status = '', supplier_unit = '', phase_num = '', material_name = '', spec_model = '', handler = ''
         } = req.query;
 
         // 构建查询条件
         let whereSql = '1=1';
         const params = [];
+        if (handler) {
+            whereSql += ' AND handler LIKE ?';
+            params.push(`%${handler}%`);
+        }
+        if (spec_model) {
+            whereSql += ' AND spec_model = ?';
+            params.push(spec_model);
+        }
+        if (material_name) {
+            whereSql += ' AND material_name = ?';
+            params.push(material_name);
+        }
+        if (phase_num) {
+            whereSql += ' AND phase_num = ?';
+            params.push(phase_num);
+        }
         if (project_id) {
             whereSql += ' AND project_id = ?';
             params.push(project_id);

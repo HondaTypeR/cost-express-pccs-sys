@@ -18,12 +18,28 @@ const getMaterialList = async (req, res) => {
     try {
         const {
             project_id = '', keyword = '', audit_status = '',
-            document_status = '', supplier_unit = ''
+            document_status = '', supplier_unit = '', phase_num = '', material_name = '', spec_model = '', handler = ''
         } = req.query;
 
         // 构建查询条件
         let whereSql = '1=1';
         const params = [];
+        if (spec_model) {
+            whereSql += ' AND spec_model = ?';
+            params.push(spec_model);
+        }
+        if (handler) {
+            whereSql += ' AND handler LIKE ?';
+            params.push(`%${handler}%`);
+        }
+        if (material_name) {
+            whereSql += ' AND material_name = ?';
+            params.push(material_name);
+        }
+        if (phase_num) {
+            whereSql += ' AND phase_num = ?';
+            params.push(phase_num);
+        }
         if (project_id) {
             whereSql += ' AND project_id = ?';
             params.push(project_id);
@@ -926,22 +942,51 @@ const getAllMaterialData = async (req, res) => {
         // 5. 按创建时间降序排序
         allData.sort((a, b) => new Date(b.create_time) - new Date(a.create_time));
 
+        // 查询所有预算数据 
+        const allBudgetResult = await query(`SELECT * FROM sys_budget`);
+        const finalDataList = [];
+        allData?.forEach(item => {
+            const findItem = allBudgetResult?.find(b => `${b.project_name}-${b.issue}-${b.name}-${b.spec_model}` === `${item.project_name}-${item?.phase_num}-${item?.material_name}-${item?.spec_model}`);
+            if (findItem) {
+                finalDataList.push({
+                    ...item,
+                    budget_unit: findItem?.unit,
+                    budget_price: findItem?.quantity,
+                    budget_unit_price: findItem?.budget_unit_price,
+                    budget_total_price: findItem?.budget_total_price,
+                    budget_types: findItem?.types,
+                    budget_issue: findItem?.issue,
+                    budget_quantity: findItem?.quantity,
+                });
+            } else {
+                finalDataList.push({
+                    ...item,
+                    budget_unit: null,
+                    budget_price: null,
+                    budget_unit_price: null,
+                    budget_total_price: null,
+                    budget_types: null,
+                    budget_issue: null,
+                    budget_quantity: null,
+                });
+            }
+        });
         // 6. 统计汇总数据
         const summary = {
-            totalCount: allData.length,
+            totalCount: finalDataList.length,
             materialCount: materialList.length,
             mechanicalCount: mechanicalList.length,
             artificialCount: artificialList.length,
-            totalAmount: allData.reduce((sum, item) => sum + Number(item.total_amount || 0), 0).toFixed(2),
-            totalAccountPaid: allData.reduce((sum, item) => sum + Number(item.account_paid || 0), 0).toFixed(2),
-            totalWaitAccountPaid: allData.reduce((sum, item) => sum + Number(item.wait_account_paid || 0), 0).toFixed(2)
+            totalAmount: finalDataList.reduce((sum, item) => sum + Number(item.total_amount || 0), 0).toFixed(2),
+            totalAccountPaid: finalDataList.reduce((sum, item) => sum + Number(item.account_paid || 0), 0).toFixed(2),
+            totalWaitAccountPaid: finalDataList.reduce((sum, item) => sum + Number(item.wait_account_paid || 0), 0).toFixed(2),
         };
 
         res.json({
             code: 200,
             msg: '查询成功',
             data: {
-                list: allData,
+                list: finalDataList,
                 summary
             }
         });
