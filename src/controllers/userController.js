@@ -19,7 +19,7 @@ const getUserList = async (req, res) => {
 
 const addUser = async (req, res) => {
     try {
-        const { username, nickname, name, owner_dept, owner_company, status = 1, password } = req.body;
+        const { username, nickname, name, owner_dept, owner_company, status = 1, password, menu_role } = req.body;
 
         // 检查公司名称是否重复
         const existResult = await query(
@@ -39,8 +39,8 @@ const addUser = async (req, res) => {
 
         // 插入
         const insertResult = await query(
-            'INSERT INTO sys_user (username, nickname, name, owner_dept, owner_company, status, password) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, password]
+            'INSERT INTO sys_user (username, nickname, name, owner_dept, owner_company, status, password, menu_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, password, menu_role || '']
         );
 
         res.json({
