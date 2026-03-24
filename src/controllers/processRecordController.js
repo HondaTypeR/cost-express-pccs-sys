@@ -572,15 +572,15 @@ const approveProcessRecord = async (req, res) => {
             }
 
             const materialPayResult = await query(
-                'SELECT account_paid, wait_account_paid FROM sys_material_management WHERE material_code = ?',
+                'SELECT account_paid, wait_account_paid, related_contract FROM sys_material_management WHERE material_code = ?',
                 [relationId]
             );
             const mechanicalPayResult = await query(
-                'SELECT account_paid, wait_account_paid FROM sys_mechanical_management WHERE mechanical_code = ?',
+                'SELECT account_paid, wait_account_paid, related_contract FROM sys_mechanical_management WHERE mechanical_code = ?',
                 [relationId]
             );
             const artificialPayResult = await query(
-                'SELECT account_paid, wait_account_paid FROM sys_artificial_management WHERE artficial_code = ?',
+                'SELECT account_paid, wait_account_paid, related_contract FROM sys_artificial_management WHERE artficial_code = ?',
                 [relationId]
             );
 
@@ -646,7 +646,8 @@ const approveProcessRecord = async (req, res) => {
                 tableName,
                 keyField,
                 newAccountPaid: currentPaid + payAmount,
-                newWaitAccountPaid: newWait
+                newWaitAccountPaid: newWait,
+                contract_id: row?.related_contract
             };
         }
 
@@ -677,7 +678,6 @@ const approveProcessRecord = async (req, res) => {
         const updateResult = await query(updateSql, updateParams);
 
         const affectedRows = updateResult.affectedRows || (Array.isArray(updateResult) ? updateResult[0]?.affectedRows : 0);
-
         // 终审时如果更新失败，可能是状态已变化
         if (affectedRows === 0 && current.document_status === 4) {
             return res.json({
@@ -694,6 +694,28 @@ const approveProcessRecord = async (req, res) => {
                     `UPDATE ${paymentSync.tableName} SET account_paid = ?, wait_account_paid = ? WHERE ${paymentSync.keyField} = ?`,
                     [paymentSync.newAccountPaid, paymentSync.newWaitAccountPaid, paymentSync.relation_id]
                 );
+
+                if (paymentSync.contract_id) {
+                    const contractResult = await query(
+                        'SELECT contract_amount, account_paid FROM sys_contract WHERE contract_id = ?',
+                        [paymentSync.contract_id]
+                    );
+                    const contractList = Array.isArray(contractResult) ? contractResult : contractResult?.results || [];
+                    if (contractList.length > 0) {
+                        const contract = contractList[0];
+                        const contractAmount = parseFloat(contract.contract_amount || 0);
+                        const contractPaid = parseFloat(contract.account_paid || 0);
+                        const newContractPaid = contractPaid + paymentSync.payAmount;
+                        let newContractWait = contractAmount - newContractPaid;
+                        if (newContractWait < 0) {
+                            newContractWait = 0;
+                        }
+                        await query(
+                            'UPDATE sys_contract SET account_paid = ?, wait_account_paid = ? WHERE contract_id = ?',
+                            [newContractPaid, newContractWait, paymentSync.contract_id]
+                        );
+                    }
+                }
             }
 
             res.json({
