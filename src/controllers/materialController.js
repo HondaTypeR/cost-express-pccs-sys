@@ -65,7 +65,7 @@ const getMaterialList = async (req, res) => {
         const listResult = await query(
             `SELECT material_code, project_id, project_name, supplier_unit,
               phase_num, material_name, spec_model, unit, quantity, unit_price, total_price,
-              acceptance_note, handler, reviewer, auditor, related_contract,
+              acceptance_note, handler, reviewer, auditor, related_contract,related_sub_contract,
               account_paid, wait_account_paid,
               audit_status, document_status, create_time, update_time
        FROM sys_material_management 
@@ -156,7 +156,7 @@ const addMaterial = async (req, res) => {
             project_id, project_name, supplier_unit = '', phase_num = '',
             material_name = '', spec_model = '', unit = '', quantity = 0.00, unit_price = 0.00,
             total_price, acceptance_note = '', handler = '', reviewer = '',
-            auditor = '', related_contract = '', audit_status = 0,
+            auditor = '', related_contract = '', related_sub_contract = '', audit_status = 0,
             document_status = 0
         } = req.body;
 
@@ -261,13 +261,13 @@ const addMaterial = async (req, res) => {
             `INSERT INTO sys_material_management (
         project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
         unit, quantity, unit_price, total_price, acceptance_note,
-        handler, reviewer, auditor, related_contract, account_paid, wait_account_paid,
+        handler, reviewer, auditor, related_contract,related_sub_contract, account_paid, wait_account_paid,
         audit_status, document_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
                 unit, quantity, unit_price, finalTotalPrice, acceptance_note,
-                handler, reviewer, auditor, related_contract, 0, finalTotalPrice,
+                handler, reviewer, auditor, related_contract, related_sub_contract, 0, finalTotalPrice,
                 audit_status, document_status
             ]
         );
@@ -292,7 +292,7 @@ const updateMaterial = async (req, res) => {
         const {
             material_code, project_id, project_name, supplier_unit, phase_num,
             material_name, spec_model, unit, quantity, unit_price, total_price,
-            acceptance_note, handler, reviewer, auditor, related_contract,
+            acceptance_note, handler, reviewer, auditor, related_contract, related_sub_contract,
             account_paid, audit_status, document_status
         } = req.body;
 
@@ -424,14 +424,14 @@ const updateMaterial = async (req, res) => {
         project_id = ?, project_name = ?, supplier_unit = ?, phase_num = ?,
         material_name = ?, spec_model = ?, unit = ?, quantity = ?, unit_price = ?,
         total_price = ?, acceptance_note = ?, handler = ?, reviewer = ?,
-        auditor = ?, related_contract = ?, account_paid = ?, wait_account_paid = ?,
+        auditor = ?, related_contract = ?, related_sub_contract = ? , account_paid = ?, wait_account_paid = ?,
         audit_status = ?, document_status = ?
       WHERE material_code = ?`,
             [
                 project_id, project_name, supplier_unit || '', phase_num || '',
                 material_name || '', spec_model || '', unit || '', finalQuantity, finalUnitPrice,
                 finalTotalPrice, acceptance_note || '', handler || '', reviewer || '',
-                auditor || '', related_contract || '', finalAccountPaid, waitAccountPaid,
+                auditor || '', related_contract || '', related_sub_contract || '', finalAccountPaid, waitAccountPaid,
                 audit_status || 0, document_status || 0, material_code
             ]
         );

@@ -66,7 +66,7 @@ const getMaterialList = async (req, res) => {
         const listResult = await query(
             `SELECT artficial_code, project_id, project_name, supplier_unit,
               phase_num, material_name, spec_model, unit, quantity, unit_price, total_price,
-              acceptance_note, handler, reviewer, auditor, related_contract,
+              acceptance_note, handler, reviewer, auditor, related_contract, related_sub_contract,
               account_paid, wait_account_paid,
               audit_status, document_status, dept, create_time, update_time
        FROM sys_artificial_management 
@@ -157,7 +157,7 @@ const addMaterial = async (req, res) => {
             project_id, project_name, supplier_unit = '', phase_num = '',
             material_name = '', spec_model = '', unit = '', quantity = 0.00, unit_price = 0.00,
             total_price, acceptance_note = '', handler = '', reviewer = '',
-            auditor = '', related_contract = '', audit_status = 0,
+            auditor = '', related_contract = '', related_sub_contract = '', audit_status = 0,
             document_status = 0, dept = ''
         } = req.body;
 
@@ -262,13 +262,13 @@ const addMaterial = async (req, res) => {
             `INSERT INTO sys_artificial_management (
         project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
         unit, quantity, unit_price, total_price, acceptance_note,
-        handler, reviewer, auditor, related_contract, account_paid, wait_account_paid,
+        handler, reviewer, auditor, related_contract, related_sub_contract, account_paid, wait_account_paid,
         audit_status, document_status, dept
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
                 unit, quantity, unit_price, finalTotalPrice, acceptance_note,
-                handler, reviewer, auditor, related_contract, 0, finalTotalPrice,
+                handler, reviewer, auditor, related_contract, related_sub_contract, 0, finalTotalPrice,
                 audit_status, document_status, dept
             ]
         );
@@ -295,7 +295,7 @@ const updateMaterial = async (req, res) => {
         const {
             artficial_code, project_id, project_name, supplier_unit, phase_num,
             material_name, spec_model, unit, quantity, unit_price, total_price,
-            acceptance_note, handler, reviewer, auditor, related_contract,
+            acceptance_note, handler, reviewer, auditor, related_contract, related_sub_contract,
             account_paid, audit_status, document_status, dept
         } = req.body;
 
@@ -427,14 +427,14 @@ const updateMaterial = async (req, res) => {
         project_id = ?, project_name = ?, supplier_unit = ?, phase_num = ?,
         material_name = ?, spec_model = ?, unit = ?, quantity = ?, unit_price = ?,
         total_price = ?, acceptance_note = ?, handler = ?, reviewer = ?,
-        auditor = ?, related_contract = ?, account_paid = ?, wait_account_paid = ?,
+        auditor = ?, related_contract = ?, related_sub_contract = ?, account_paid = ?, wait_account_paid = ?,
         audit_status = ?, document_status = ?, dept = ?
       WHERE artficial_code = ?`,
             [
                 project_id, project_name, supplier_unit || '', phase_num || '',
                 material_name || '', spec_model || '', unit || '', finalQuantity, finalUnitPrice,
                 finalTotalPrice, acceptance_note || '', handler || '', reviewer || '',
-                auditor || '', related_contract || '', finalAccountPaid, waitAccountPaid,
+                auditor || '', related_contract || '', related_sub_contract || '', finalAccountPaid, waitAccountPaid,
                 audit_status || 0, document_status || 0, dept || '', artficial_code
             ]
         );

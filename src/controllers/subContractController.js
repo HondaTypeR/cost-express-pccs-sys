@@ -335,6 +335,50 @@ const deleteSubContract = async (req, res) => {
         if (affectedRows <= 0) {
             return res.json({ code: 400, msg: '补充合同删除失败，未执行删除操作', data: null });
         }
+        // 3. 检查是否有关联的材料管理记录
+        const materialResult = await query(
+            'SELECT COUNT(*) as count FROM sys_material_management WHERE related_sub_contract = ?',
+            [sub_contract_id]
+        );
+        const materialCount = Number((Array.isArray(materialResult) ? materialResult[0] : materialResult?.results?.[0])?.count || 0);
+
+        if (materialCount > 0) {
+            return res.json({
+                code: 400,
+                msg: `该合同关联了 ${materialCount} 条材料管理记录，请先删除材料管理记录后再删除合同`,
+                data: null
+            });
+        }
+
+        // 4. 检查是否有关联的机械管理记录
+        const mechanicalResult = await query(
+            'SELECT COUNT(*) as count FROM sys_mechanical_management WHERE related_sub_contract = ?',
+            [sub_contract_id]
+        );
+        const mechanicalCount = Number((Array.isArray(mechanicalResult) ? mechanicalResult[0] : mechanicalResult?.results?.[0])?.count || 0);
+
+        if (mechanicalCount > 0) {
+            return res.json({
+                code: 400,
+                msg: `该合同关联了 ${mechanicalCount} 条机械管理记录，请先删除机械管理记录后再删除合同`,
+                data: null
+            });
+        }
+
+        // 5. 检查是否有关联的人工管理记录
+        const artificialResult = await query(
+            'SELECT COUNT(*) as count FROM sys_artificial_management WHERE related_sub_contract = ?',
+            [sub_contract_id]
+        );
+        const artificialCount = Number((Array.isArray(artificialResult) ? artificialResult[0] : artificialResult?.results?.[0])?.count || 0);
+
+        if (artificialCount > 0) {
+            return res.json({
+                code: 400,
+                msg: `该合同关联了 ${artificialCount} 条人工管理记录，请先删除人工管理记录后再删除合同`,
+                data: null
+            });
+        }
 
         if (oldAmount !== 0) {
             await query(
@@ -357,9 +401,104 @@ const deleteSubContract = async (req, res) => {
     }
 };
 
+// 5. 获取补充合同关联的所有数据（材料、机械、人工）
+const getSubContractRelatedData = async (req, res) => {
+    try {
+        const { sub_contract_id } = req.body;
+
+        // 参数校验
+        if (!sub_contract_id) {
+            return res.json({
+                code: 400,
+                msg: '补充合同ID不能为空',
+                data: null
+            });
+        }
+
+        // 1. 查询该补充合同下的所有材料管理数据
+        const materialResult = await query(
+            `SELECT material_code, project_id, project_name, supplier_unit, phase_num, 
+              material_name, unit, quantity, unit_price, total_price, acceptance_note, 
+              handler, reviewer, auditor, related_contract, related_sub_contract,
+              audit_status, document_status, create_time, update_time
+       FROM sys_material_management 
+       WHERE related_sub_contract = ?
+       ORDER BY create_time DESC`,
+            [sub_contract_id]
+        );
+        const materialList = Array.isArray(materialResult) ? materialResult : materialResult?.results || [];
+
+        // 2. 查询该补充合同下的所有机械管理数据
+        const mechanicalResult = await query(
+            `SELECT mechanical_code, project_id, project_name, supplier_unit, phase_num,
+              material_name, unit, quantity, unit_price, total_price, acceptance_note, 
+              handler, reviewer, auditor, related_contract, related_sub_contract,
+              audit_status, document_status, create_time, update_time
+       FROM sys_mechanical_management 
+       WHERE related_sub_contract = ?
+       ORDER BY create_time DESC`,
+            [sub_contract_id]
+        );
+        const mechanicalList = Array.isArray(mechanicalResult) ? mechanicalResult : mechanicalResult?.results || [];
+
+        // 3. 查询该补充合同下的所有人工管理数据
+        const artificialResult = await query(
+            `SELECT artficial_code, project_id, project_name, supplier_unit, phase_num,
+              material_name, unit, quantity, unit_price, total_price, acceptance_note,
+              handler, reviewer, auditor, related_contract, related_sub_contract, dept,
+              audit_status, document_status, create_time, update_time
+       FROM sys_artificial_management 
+       WHERE related_sub_contract = ?
+       ORDER BY create_time DESC`,
+            [sub_contract_id]
+        );
+        const artificialList = Array.isArray(artificialResult) ? artificialResult : artificialResult?.results || [];
+
+        // 4. 统计总价
+        const materialTotal = materialList.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+        const mechanicalTotal = mechanicalList.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+        const artificialTotal = artificialList.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+        const grandTotal = materialTotal + mechanicalTotal + artificialTotal;
+
+        res.json({
+            code: 200,
+            msg: '查询成功',
+            data: {
+                sub_contract_id,
+                material: {
+                    list: materialList,
+                    count: materialList.length,
+                    total: materialTotal.toFixed(2)
+                },
+                mechanical: {
+                    list: mechanicalList,
+                    count: mechanicalList.length,
+                    total: mechanicalTotal.toFixed(2)
+                },
+                artificial: {
+                    list: artificialList,
+                    count: artificialList.length,
+                    total: artificialTotal.toFixed(2)
+                },
+                summary: {
+                    totalCount: materialList.length + mechanicalList.length + artificialList.length,
+                    grandTotal: grandTotal.toFixed(2)
+                }
+            }
+        });
+    } catch (err) {
+        res.json({
+            code: 500,
+            msg: '服务器错误：' + err.message,
+            data: null
+        });
+    }
+};
+
 module.exports = {
     getSubContractList,
     addSubContract,
     updateSubContract,
-    deleteSubContract
+    deleteSubContract,
+    getSubContractRelatedData
 };
