@@ -16,35 +16,36 @@ const getContractList = async (req, res) => {
         const params = [];
 
         if (contract_id) {
-            whereSql += ' AND contract_id = ?';
+            whereSql += ' AND c.contract_id = ?';
             params.push(contract_id);
         }
         if (project_name) {
-            whereSql += ' AND project_name LIKE ?';
+            whereSql += ' AND c.project_name LIKE ?';
             params.push(`%${project_name}%`);
         }
         if (party_b) {
-            whereSql += ' AND (party_b LIKE ? OR party_b_id = ?)';
+            whereSql += ' AND (c.party_b LIKE ? OR c.party_b_id = ?)';
             params.push(`%${party_b}%`, party_b);
         }
         if (term) {
-            whereSql += ' AND term = ?';
+            whereSql += ' AND c.term = ?';
             params.push(term);
         }
         if (type) {
-            whereSql += ' AND type = ?';
+            whereSql += ' AND c.type = ?';
             params.push(type);
         }
 
         // 查询合同列表（包含所有字段）
         const listResult = await query(
-            `SELECT contract_id, party_a, party_b, party_b_id, project_id,project_name, contract_amount, 
-              account_paid, wait_account_paid, term,
-              project_content, type, contract_type, material_name,people_name,other_name, machinery_name,
-              contract_attachment, create_time, update_time
-       FROM sys_contract 
+            `SELECT c.contract_id, c.party_a, c.party_b, c.party_b_id, c.project_id, c.project_name, c.contract_amount, 
+              c.account_paid, c.wait_account_paid, c.term,
+              c.project_content, c.type, c.contract_type, c.material_name, c.people_name, c.other_name, c.machinery_name,
+              c.contract_attachment, c.create_time, c.update_time,
+              (SELECT COUNT(*) FROM sys_sub_contract s WHERE s.own_contract_id = c.contract_id) as sub_contract_count
+       FROM sys_contract c
        WHERE ${whereSql} 
-       ORDER BY create_time DESC`,
+       ORDER BY c.create_time DESC`,
             params
         );
         const list = Array.isArray(listResult) ? listResult : listResult?.results || [];

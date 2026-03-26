@@ -263,7 +263,7 @@ const addMaterial = async (req, res) => {
         unit, quantity, unit_price, total_price, acceptance_note,
         handler, reviewer, auditor, related_contract, related_sub_contract, account_paid, wait_account_paid,
         audit_status, document_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 project_id, project_name, supplier_unit, phase_num, material_name, spec_model,
                 unit, quantity, unit_price, finalTotalPrice, acceptance_note,
