@@ -5,7 +5,7 @@ const mysql = require('mysql2/promise'); // 使用 promise 版本，支持 async
 const dbConfig = {
     host: 'localhost',
     port: 3306,
-    user: 'root',
+    user: 'admin_system',
     password: 'Chejunlin@0426t!', // 比如 123456
     database: 'admin_system',
     allowPublicKeyRetrieval: true, // 解决之前的公钥获取报错
