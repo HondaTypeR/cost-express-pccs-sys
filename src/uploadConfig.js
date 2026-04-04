@@ -59,8 +59,6 @@ module.exports = {
     uploadDir,
     // 生成文件访问URL（前端可直接访问）
     getFileUrl: (fileName) => {
-        const isDev = process.env.NODE_ENV === 'development';
-        // 假设你的服务域名是 http://localhost:3000，可根据实际修改
-        return isDev ? `http://localhost:3000/uploads/contract/${encodeURIComponent(fileName)}` : `http://101.37.231.212:3000/uploads/contract/${encodeURIComponent(fileName)}`;
+        return `/uploads/contract/${encodeURIComponent(fileName)}`;
     }
 };
