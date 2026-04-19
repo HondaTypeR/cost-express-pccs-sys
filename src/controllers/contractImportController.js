@@ -49,8 +49,10 @@ const ensureBudgetTable = async () => {
             spec_model VARCHAR(255) NOT NULL DEFAULT '',
             unit VARCHAR(50) DEFAULT '',
             quantity DECIMAL(18,4) NOT NULL DEFAULT 0,
-            budget_unit_price DECIMAL(18,4) NOT NULL DEFAULT 0,
-            budget_total_price DECIMAL(18,4) NOT NULL DEFAULT 0,
+            market_price DECIMAL(18,4) NOT NULL DEFAULT 0,
+            budget_price DECIMAL(18,4) NOT NULL DEFAULT 0,
+            spread DECIMAL(18,4) NOT NULL DEFAULT 0,
+            change_spread DECIMAL(18,4) NOT NULL DEFAULT 0,
             create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
             update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uk_budget (project_id, name, spec_model),
@@ -139,6 +141,13 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
 
     await ensureBudgetTable();
 
+    // 如果表为空，重置自增ID计数器
+    const countResult = await query('SELECT COUNT(*) as total FROM sys_budget');
+    const count = Array.isArray(countResult) ? countResult[0]?.total : countResult?.results?.[0]?.total;
+    if (count === 0) {
+        await query('ALTER TABLE sys_budget AUTO_INCREMENT = 1');
+    }
+
     const projectName = await getProjectNameById(projectId);
 
     const workbook = xlsx.readFile(filePath);
@@ -156,7 +165,7 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
     }
 
     const headers = data[0];
-    const requiredFields = ['名称', '规格型号', '单位', '数量', '预算单价', '预算总价'];
+    const requiredFields = ['名称', '编号', '单位', '数量', '市场价', '预算价', '价差', '调差金额'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
     if (missingFields.length > 0) {
         await query('UPDATE sys_import_task SET status = 3, message = ?, update_time = NOW() WHERE task_id = ?', [`Excel缺少必填字段：${missingFields.join(', ')}`, taskId]);
@@ -166,11 +175,13 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
     const getIndex = (field) => headers.indexOf(field);
     const indices = {
         name: getIndex('名称'),
-        spec_model: getIndex('规格型号'),
+        spec_model: getIndex('编号'),
         unit: getIndex('单位'),
         quantity: getIndex('数量'),
-        budget_unit_price: getIndex('预算单价'),
-        budget_total_price: getIndex('预算总价')
+        market_price: getIndex('市场价'),
+        budget_price: getIndex('预算价'),
+        spread: getIndex('价差'),
+        change_spread: getIndex('调差金额')
     };
 
     const rows = data.slice(1);
@@ -198,8 +209,8 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
                 `INSERT INTO sys_budget (
                     project_id, project_name, import_task_id, types, issue,
                     name, spec_model, unit,
-                    quantity, budget_unit_price, budget_total_price
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    quantity, market_price, budget_price, spread, change_spread
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     project_name = VALUES(project_name),
                     import_task_id = VALUES(import_task_id),
@@ -207,13 +218,15 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
                     issue = VALUES(issue),
                     unit = VALUES(unit),
                     quantity = VALUES(quantity),
-                    budget_unit_price = VALUES(budget_unit_price),
-                    budget_total_price = VALUES(budget_total_price),
+                    market_price = VALUES(market_price),
+                    budget_price = VALUES(budget_price),
+                    spread = VALUES(spread),
+                    change_spread = VALUES(change_spread),
                     update_time = NOW()`,
                 [
                     item.project_id, item.project_name, item.import_task_id, item.types, item.issue,
                     item.name, item.spec_model, item.unit,
-                    item.quantity, item.budget_unit_price, item.budget_total_price
+                    item.quantity, item.market_price, item.budget_price, item.spread, item.change_spread
                 ]
             );
             success += 1;
@@ -230,7 +243,7 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
         if (batchItems.length === 0) return;
 
         const valuesSql = batchItems
-            .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             .join(',');
         const params = [];
         for (const wrapper of batchItems) {
@@ -238,7 +251,7 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
             params.push(
                 item.project_id, item.project_name, item.import_task_id, item.types, item.issue,
                 item.name, item.spec_model, item.unit,
-                item.quantity, item.budget_unit_price, item.budget_total_price
+                item.quantity, item.market_price, item.budget_price, item.spread, item.change_spread
             );
         }
 
@@ -247,7 +260,7 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
                 `INSERT INTO sys_budget (
                     project_id, project_name, import_task_id, types, issue,
                     name, spec_model, unit,
-                    quantity, budget_unit_price, budget_total_price
+                    quantity, market_price, budget_price, spread, change_spread
                 ) VALUES ${valuesSql}
                 ON DUPLICATE KEY UPDATE
                     project_name = VALUES(project_name),
@@ -256,8 +269,10 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
                     issue = VALUES(issue),
                     unit = VALUES(unit),
                     quantity = VALUES(quantity),
-                    budget_unit_price = VALUES(budget_unit_price),
-                    budget_total_price = VALUES(budget_total_price),
+                    market_price = VALUES(market_price),
+                    budget_price = VALUES(budget_price),
+                    spread = VALUES(spread),
+                    change_spread = VALUES(change_spread),
                     update_time = NOW()`,
                 params
             );
@@ -286,11 +301,14 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
         const specModel = indices.spec_model >= 0 ? String(row[indices.spec_model] || '').trim() : '';
         const unit = indices.unit >= 0 ? String(row[indices.unit] || '').trim() : '';
         const quantity = indices.quantity >= 0 ? parseDecimal(row[indices.quantity]) : 0;
-        const budgetUnitPrice = indices.budget_unit_price >= 0 ? parseDecimal(row[indices.budget_unit_price]) : 0;
-        const totalFromExcel = indices.budget_total_price >= 0 ? parseDecimal(row[indices.budget_total_price]) : 0;
-        const budgetTotalPrice = totalFromExcel > 0 ? totalFromExcel : Number((quantity * budgetUnitPrice).toFixed(4));
+        const marketPrice = indices.market_price >= 0 ? parseDecimal(row[indices.market_price]) : 0;
+        const budget_price = indices.budget_price >= 0 ? parseDecimal(row[indices.budget_price]) : 0;
+        const spread = indices.spread >= 0 ? parseDecimal(row[indices.spread]) : 0;
+        const change_spread = indices.change_spread >= 0 ? parseDecimal(row[indices.change_spread]) : 0;
 
-        if (!name || quantity <= 0 || budgetUnitPrice <= 0) {
+
+
+        if (!name || quantity <= 0 || marketPrice <= 0) {
             invalid++;
             await query(
                 'INSERT INTO sys_import_task_log (task_id, row_num, level, message) VALUES (?, ?, ?, ?)',
@@ -307,8 +325,10 @@ const runBudgetImportTask = async (taskId, filePath, projectId, types, issue) =>
                 spec_model: specModel,
                 unit,
                 quantity,
-                budget_unit_price: budgetUnitPrice,
-                budget_total_price: budgetTotalPrice
+                market_price: marketPrice,
+                budget_price: budget_price,
+                spread: spread,
+                change_spread: change_spread
             };
 
             batchItems.push({ rowNum, item });
@@ -485,7 +505,7 @@ const getBudgetList = async (req, res) => {
         const total = countList.length > 0 ? Number(countList[0].total) || 0 : 0;
 
         const listResult = await query(
-            `SELECT * FROM sys_budget WHERE ${whereSql} ORDER BY update_time DESC, budget_id DESC LIMIT ${offset}, ${pageSize}`,
+            `SELECT * FROM sys_budget WHERE ${whereSql} ORDER BY budget_id ASC LIMIT ${offset}, ${pageSize}`,
             params
         );
         const list = Array.isArray(listResult) ? listResult : listResult?.results || [];
@@ -525,8 +545,10 @@ const updateBudget = async (req, res) => {
             'spec_model',
             'unit',
             'quantity',
-            'budget_unit_price',
-            'budget_total_price'
+            'market_price',
+            'budget_price',
+            'spread',
+            'change_spread'
         ];
 
         const setSqlParts = [];
@@ -608,19 +630,21 @@ const addBudget = async (req, res) => {
         const unit = String(body.unit || '').trim();
 
         const quantity = Number(body.quantity ?? 0) || 0;
-        const budget_unit_price = Number(body.budget_unit_price ?? 0) || 0;
-        const budget_total_price = Number(body.budget_total_price ?? 0) || 0;
+        const market_price = Number(body.market_price ?? 0) || 0;
+        const budget_price = Number(body.budget_price ?? 0) || 0;
+        const spread = Number(body.spread ?? 0) || 0;
+        const change_spread = Number(body.change_spread ?? 0) || 0;
 
         const insertResult = await query(
             `INSERT INTO sys_budget (
                 project_id, project_name, import_task_id, types, issue,
                 name, spec_model, unit,
-                quantity, budget_unit_price, budget_total_price
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                quantity, market_price, budget_price, spread, change_spread
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 project_id, project_name, 0, types, issue,
                 name, spec_model, unit,
-                quantity, budget_unit_price, budget_total_price
+                quantity, market_price, budget_price, spread, change_spread
             ]
         );
 

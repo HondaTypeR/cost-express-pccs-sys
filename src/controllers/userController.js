@@ -37,10 +37,15 @@ const addUser = async (req, res) => {
             });
         }
 
+
+        // 加密密码（盐值加密）
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         // 插入
         const insertResult = await query(
             'INSERT INTO sys_user (username, nickname, name, owner_dept, owner_company, status, password, menu_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, password, menu_role || '']
+            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, hashedPassword, menu_role || '']
         );
 
         res.json({

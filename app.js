@@ -20,6 +20,7 @@ const supplierRouter = require('./src/routes/supplier');
 const contractRouter = require('./src/routes/contract');
 const reviewLogRouter = require('./src/routes/reviewLog');
 const subContractRouter = require('./src/routes/subContract');
+const deptRouter = require('./src/routes/dept');
 
 // 必备中间件：解析 JSON 和 URL 编码请求体
 app.use(express.json());
@@ -36,6 +37,7 @@ app.use('/api/business', businessRouter);
 app.use('/api/contract', contractRouter);
 app.use('/api/sub/contract', subContractRouter);
 app.use('/api/review/log', reviewLogRouter);
+app.use('/api/dept', deptRouter);
 
 // 5. 其他中间件和路由
 app.use(express.json());

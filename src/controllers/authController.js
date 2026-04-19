@@ -105,14 +105,52 @@ const getUserMenu = async (req, res) => {
         // 从数据库查询菜单并按sort排序
         let menus = await query('SELECT * FROM sys_menus');
         const currentUserInfo = await query('SELECT * FROM sys_user WHERE id = ?', [req.user.id]);
-        // 可扩展：根据 req.user 中的角色返回不同菜单
-        if (currentUserInfo[0].menu_role === 'admin') {
+        const curUser = currentUserInfo[0] || {};
+        const menuRole = curUser.menu_role;
+        const ownerDept = Number(curUser.owner_dept);
+
+        // 部门白名单：成本部(1) / 工程部(2)
+        const DEPT_MENU_WHITELIST = {
+            1: ['/welcome', '/supplier', '/contract', '/sub-contract-list', '/financeManagement'],
+            2: ['/welcome', '/contract', '/sub-contract-list', '/comprehensive', '/financeManagement']
+        };
+
+        if (menuRole === 'admin') {
             // admin用户返回所有菜单
-            menus = menus
+            menus = menus;
+        } else if (menuRole === 'user' && DEPT_MENU_WHITELIST[ownerDept]) {
+            // 按部门白名单过滤
+            const whitelist = DEPT_MENU_WHITELIST[ownerDept];
+            const allMenus = menus;
+            menus = menus.filter(item => whitelist.includes(item.path));
+
+            // 追加：如果当前用户是某个部门的任一级审核人，把该部门的 router 菜单也加入
+            const userId = curUser.id;
+            if (userId) {
+                const deptRouterRows = await query(
+                    `SELECT router FROM sys_dept
+                     WHERE router IS NOT NULL AND router <> ''
+                       AND (level_one_checker = ? OR level_two_checker = ?
+                            OR level_three_checker = ? OR level_four_checker = ?
+                            OR level_five_checker = ?)`,
+                    [userId, userId, userId, userId, userId]
+                );
+                const deptRouters = Array.from(new Set(
+                    (deptRouterRows || [])
+                        .map(r => String(r.router || '').trim())
+                        .filter(Boolean)
+                ));
+                if (deptRouters.length > 0) {
+                    const existingPaths = new Set(menus.map(m => m.path));
+                    const extraMenus = allMenus.filter(m =>
+                        deptRouters.includes(m.path) && !existingPaths.has(m.path)
+                    );
+                    menus = menus.concat(extraMenus);
+                }
+            }
         } else {
-            const curUserAllMenus = currentUserInfo[0].menu_role?.split(',') || []
-            // 根据curUserAllMenus过滤menus
-            menus = menus.filter(item => curUserAllMenus?.includes(item.menu_role))
+            // 默认仅返回 /welcome 菜单
+            menus = menus.filter(item => ['/welcome', '/financeManagement'].includes(item.path));
         }
 
         res.json({
