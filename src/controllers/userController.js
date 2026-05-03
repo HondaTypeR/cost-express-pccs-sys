@@ -19,7 +19,7 @@ const getUserList = async (req, res) => {
 
 const addUser = async (req, res) => {
     try {
-        const { username, nickname, name, owner_dept, owner_company, status = 1, password, menu_role } = req.body;
+        const { username, nickname, name, owner_dept, owner_company, status = 1, password, menu_role, bankCardNo, bankCardName } = req.body;
 
         // 检查公司名称是否重复
         const existResult = await query(
@@ -44,8 +44,8 @@ const addUser = async (req, res) => {
 
         // 插入
         const insertResult = await query(
-            'INSERT INTO sys_user (username, nickname, name, owner_dept, owner_company, status, password, menu_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, hashedPassword, menu_role || '']
+            'INSERT INTO sys_user (username, nickname, name, owner_dept, owner_company, status, password, menu_role, bankCardNo, bankCardName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status, hashedPassword, menu_role || '', bankCardNo || '', bankCardName || '']
         );
 
         res.json({
@@ -65,7 +65,7 @@ const addUser = async (req, res) => {
 const updateUser = async (req, res) => {
     try {
         // POST方式：ID从请求体获取（不再从URL参数取）
-        const { id, username, nickname, name, owner_dept, owner_company, status } = req.body;
+        const { id, username, nickname, name, owner_dept, owner_company, status, bankCardNo, bankCardName } = req.body;
 
         // 1. 基础参数校验
         if (!id) {
@@ -113,8 +113,8 @@ const updateUser = async (req, res) => {
 
         // 4. 执行更新操作
         const updateResult = await query(
-            'UPDATE sys_user SET username = ?, nickname = ?, name = ?, owner_dept = ?, owner_company = ?, status = ? WHERE id = ?',
-            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status ?? 1, id]
+            'UPDATE sys_user SET username = ?, nickname = ?, name = ?, owner_dept = ?, owner_company = ?, status = ?, bankCardNo = ?, bankCardName = ? WHERE id = ?',
+            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status ?? 1, bankCardNo || '', bankCardName || '', id]
         );
 
         // 5. 判断更新是否成功

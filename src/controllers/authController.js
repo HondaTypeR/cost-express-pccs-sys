@@ -82,7 +82,9 @@ const getCurrentUser = async (req, res) => {
             role: user.role,
             name: user.name,
             avatar: user.avatar,
-            owner_dept: user.owner_dept  // 归属部门
+            owner_dept: user.owner_dept,  // 归属部门
+            bankCardNo: user.bankCardNo,
+            bankCardName: user.bankCardName
         };
 
         res.json({

@@ -11,18 +11,23 @@ const addReviewLog = async (req, res) => {
             level_one_reviewer = '',
             level_one_review_status = '',
             level_one_review_remark = '',
+            level_one_time = '',
             level_two_reviewer = '',
             level_two_review_status = '',
             level_two_review_remark = '',
+            level_two_time = '',
             level_three_reviewer = '',
             level_three_review_status = '',
             level_three_review_remark = '',
+            level_three_time = '',
             level_four_reviewer = '',
             level_four_review_status = '',
             level_four_review_remark = '',
+            level_four_time = '',
             level_five_reviewer = '',
             level_five_review_status = '',
-            level_five_review_remark = ''
+            level_five_review_remark = '',
+            level_five_time = ''
         } = req.body || {};
 
         if (!link_info) {
@@ -45,20 +50,20 @@ const addReviewLog = async (req, res) => {
             `INSERT INTO sys_review_log (
                 link_info, log_type,
                 approval_money, real_approval_money,
-                level_one_reviewer, level_one_review_status, level_one_review_remark,
-                level_two_reviewer, level_two_review_status, level_two_review_remark,
-                level_three_reviewer, level_three_review_status, level_three_review_remark,
-                level_four_reviewer, level_four_review_status, level_four_review_remark,
-                level_five_reviewer, level_five_review_status, level_five_review_remark
-            ) VALUES (?, ?, ?, ?, ?,?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                level_one_reviewer, level_one_review_status, level_one_review_remark, level_one_time,
+                level_two_reviewer, level_two_review_status, level_two_review_remark, level_two_time,
+                level_three_reviewer, level_three_review_status, level_three_review_remark, level_three_time,
+                level_four_reviewer, level_four_review_status, level_four_review_remark, level_four_time,
+                level_five_reviewer, level_five_review_status, level_five_review_remark, level_five_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 link_info, log_type,
                 approval_money, real_approval_money,
-                level_one_reviewer, level_one_review_status, level_one_review_remark,
-                level_two_reviewer, level_two_review_status, level_two_review_remark,
-                level_three_reviewer, level_three_review_status, level_three_review_remark,
-                level_four_reviewer, level_four_review_status, level_four_review_remark,
-                level_five_reviewer, level_five_review_status, level_five_review_remark
+                level_one_reviewer, level_one_review_status, level_one_review_remark, level_one_time,
+                level_two_reviewer, level_two_review_status, level_two_review_remark, level_two_time,
+                level_three_reviewer, level_three_review_status, level_three_review_remark, level_three_time,
+                level_four_reviewer, level_four_review_status, level_four_review_remark, level_four_time,
+                level_five_reviewer, level_five_review_status, level_five_review_remark, level_five_time
             ]
         );
 
@@ -194,18 +199,23 @@ const updateReviewLog = async (req, res) => {
             'level_one_reviewer',
             'level_one_review_status',
             'level_one_review_remark',
+            'level_one_time',
             'level_two_reviewer',
             'level_two_review_status',
             'level_two_review_remark',
+            'level_two_time',
             'level_three_reviewer',
             'level_three_review_status',
             'level_three_review_remark',
+            'level_three_time',
             'level_four_reviewer',
             'level_four_review_status',
             'level_four_review_remark',
+            'level_four_time',
             'level_five_reviewer',
             'level_five_review_status',
-            'level_five_review_remark'
+            'level_five_review_remark',
+            'level_five_time'
         ];
 
         const setClauses = [];
@@ -320,11 +330,11 @@ const getReviewLogList = async (req, res) => {
         const listResult = await query(
             `SELECT 
                 id, link_info, log_type, approval_money, real_approval_money,
-                level_one_reviewer, level_one_review_status, level_one_review_remark,
-                level_two_reviewer, level_two_review_status, level_two_review_remark,
-                level_three_reviewer, level_three_review_status, level_three_review_remark,
-                level_four_reviewer, level_four_review_status, level_four_review_remark,
-                level_five_reviewer, level_five_review_status, level_five_review_remark,
+                level_one_reviewer, level_one_review_status, level_one_review_remark, level_one_time,
+                level_two_reviewer, level_two_review_status, level_two_review_remark, level_two_time,
+                level_three_reviewer, level_three_review_status, level_three_review_remark, level_three_time,
+                level_four_reviewer, level_four_review_status, level_four_review_remark, level_four_time,
+                level_five_reviewer, level_five_review_status, level_five_review_remark, level_five_time,
                 create_time, update_time
             FROM sys_review_log
             WHERE ${whereSql}

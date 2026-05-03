@@ -6,6 +6,7 @@ const comprehensiveController = require('../controllers/comprehensiveController'
 const materialController = require('../controllers/materialController');
 const mechanicalController = require('../controllers/mechanicalController');
 const artificialController = require('../controllers/artificialController');
+const applyController = require('../controllers/applyController');
 const processRecordController = require('../controllers/processRecordController');
 const contractImportController = require('../controllers/contractImportController');
 const analyticsController = require('../controllers/analyticsController');
@@ -86,5 +87,21 @@ router.post('/artificial/delete', authMiddleware, artificialController.deleteMat
 router.post('/artificial/submit_approval', authMiddleware, artificialController.submitApproval);
 router.post('/artificial/approve', authMiddleware, artificialController.approveMaterial);
 router.post('/artificial/reject', authMiddleware, artificialController.rejectMaterial);
+
+// 报销申请相关路由
+router.post('/apply/list', authMiddleware, applyController.getApplyList);
+router.get('/apply/:id', authMiddleware, applyController.getApplyDetail);
+router.post('/apply/add', authMiddleware, applyController.addApply);
+router.post('/apply/update', authMiddleware, applyController.updateApply);
+router.post('/apply/delete', authMiddleware, applyController.deleteApply);
+router.post('/apply/submit_approval', authMiddleware, applyController.submitApproval);
+router.post('/apply/approve', authMiddleware, applyController.approveApply);
+router.post('/apply/reject', authMiddleware, applyController.rejectApply);
+
+// 报销申请（5级审批人模式）- 新审批页面使用
+router.post('/apply/list/by_level', authMiddleware, applyController.getApplyListByLevel);
+router.post('/apply/submit_with_levels', authMiddleware, applyController.submitApplyWithLevels);
+router.post('/apply/approve_with_levels', authMiddleware, applyController.approveApplyWithLevels);
+router.post('/apply/reject_with_levels', authMiddleware, applyController.rejectApplyWithLevels);
 
 module.exports = router;
