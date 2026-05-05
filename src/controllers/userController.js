@@ -6,7 +6,7 @@ const getUserList = async (req, res) => {
         const result = await query('SELECT * FROM sys_user');
         res.json({
             code: 200,
-            data: result
+            data: result?.filter((item) => item?.id !== 1)
         });
     } catch (err) {
         res.json({
