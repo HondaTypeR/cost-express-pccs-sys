@@ -175,9 +175,9 @@ const changePassword = async (req, res) => {
         const salt = await bcrypt.genSalt(10); // 生成盐值
         const newPwdHash = await bcrypt.hash(newPassword, salt);
 
-        // 7. 更新数据库中的密码
+        // 7. 更新数据库中的密码，同时将isInitPass标记为2（非初始密码）
         const updateResult = await query(
-            'UPDATE sys_user SET password = ? WHERE id = ?',
+            'UPDATE sys_user SET password = ?, isInitPass = 2 WHERE id = ?',
             [newPwdHash, userId]
         );
 

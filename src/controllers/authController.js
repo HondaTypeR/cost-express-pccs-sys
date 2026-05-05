@@ -84,7 +84,8 @@ const getCurrentUser = async (req, res) => {
             avatar: user.avatar,
             owner_dept: user.owner_dept,  // 归属部门
             bankCardNo: user.bankCardNo,
-            bankCardName: user.bankCardName
+            bankCardName: user.bankCardName,
+            isInitPass: user.isInitPass
         };
 
         res.json({
@@ -109,22 +110,32 @@ const getUserMenu = async (req, res) => {
         const currentUserInfo = await query('SELECT * FROM sys_user WHERE id = ?', [req.user.id]);
         const curUser = currentUserInfo[0] || {};
         const menuRole = curUser.menu_role;
-        const ownerDept = Number(curUser.owner_dept);
+        // owner_dept 支持多部门（如 '1,2,3'），解析为部门ID数组
+        const ownerDepts = String(curUser.owner_dept || '')
+            .split(',')
+            .map(s => Number(s.trim()))
+            .filter(n => !isNaN(n) && n > 0);
 
-        // 部门白名单：成本部(1) / 工程部(2)
+        // 部门白名单：成本部(1) / 工程部(2)/ 综合办(3) / 销售部(4)
         const DEPT_MENU_WHITELIST = {
             1: ['/welcome', '/supplier', '/contract', '/sub-contract-list', '/financeManagement'],
-            2: ['/welcome', '/contract', '/sub-contract-list', '/comprehensive', '/financeManagement']
+            2: ['/welcome', '/contract', '/sub-contract-list', '/comprehensive', '/financeManagement'],
+            3: ['/welcome', '/workFeeApply', '/workFeeApplyApproval'],
+            4: ['/saleFeeApply', '/saleFeeApplyApproval']
         };
+
+        // 合并所有归属部门的菜单白名单（去重）
+        const mergedWhitelist = Array.from(new Set(
+            ownerDepts.flatMap(deptId => DEPT_MENU_WHITELIST[deptId] || [])
+        ));
 
         if (menuRole === 'admin') {
             // admin用户返回所有菜单
             menus = menus;
-        } else if (menuRole === 'user' && DEPT_MENU_WHITELIST[ownerDept]) {
-            // 按部门白名单过滤
-            const whitelist = DEPT_MENU_WHITELIST[ownerDept];
+        } else if (menuRole === 'user' && mergedWhitelist.length > 0) {
+            // 按合并后的部门白名单过滤
             const allMenus = menus;
-            menus = menus.filter(item => whitelist.includes(item.path));
+            menus = menus.filter(item => mergedWhitelist.includes(item.path));
 
             // 追加：如果当前用户是某个部门的任一级审核人，把该部门的 router 菜单也加入
             const userId = curUser.id;

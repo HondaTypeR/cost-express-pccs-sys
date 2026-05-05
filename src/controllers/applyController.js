@@ -5,7 +5,7 @@ const getApplyList = async (req, res) => {
     try {
         const { dept, payee, document_status, audit_status } = req.body || {};
         const userId = req.user?.id;
-        const isAdmin = userId === 1 || userId === 999;
+        const isAdmin = userId === 1 || userId === 2;
 
         let whereSql = '1=1';
         const params = [];
@@ -534,7 +534,7 @@ const getApplyListByLevel = async (req, res) => {
     try {
         const { dept, payee, document_status_apply, audit_status_apply } = req.body || {};
         const userId = req.user?.id;
-        const isAdmin = userId === 1 || userId === 999;
+        const isAdmin = userId === 1 || userId === 2;
 
         // 只返回原审批流程（/api/business/apply/list）中终审通过的数据
         // 终审通过 = document_status = 3（已归档）且 audit_status = 1（审核通过）
