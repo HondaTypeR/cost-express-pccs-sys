@@ -65,7 +65,7 @@ const addUser = async (req, res) => {
 const updateUser = async (req, res) => {
     try {
         // POST方式：ID从请求体获取（不再从URL参数取）
-        const { id, username, nickname, name, owner_dept, owner_company, status, bankCardNo, bankCardName } = req.body;
+        const { id, username, nickname, name, owner_dept, owner_company, status, bankCardNo, bankCardName, menu_role } = req.body;
 
         // 1. 基础参数校验
         if (!id) {
@@ -113,8 +113,8 @@ const updateUser = async (req, res) => {
 
         // 4. 执行更新操作
         const updateResult = await query(
-            'UPDATE sys_user SET username = ?, nickname = ?, name = ?, owner_dept = ?, owner_company = ?, status = ?, bankCardNo = ?, bankCardName = ? WHERE id = ?',
-            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status ?? 1, bankCardNo || '', bankCardName || '', id]
+            'UPDATE sys_user SET username = ?, nickname = ?, name = ?, owner_dept = ?, owner_company = ?, status = ?, bankCardNo = ?, bankCardName = ?, menu_role = ?, WHERE id = ?',
+            [username, nickname || '', name || '', owner_dept || '', owner_company || '', status ?? 1, bankCardNo || '', bankCardName || '', menu_role || '', id]
         );
 
         // 5. 判断更新是否成功
