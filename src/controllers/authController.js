@@ -118,10 +118,10 @@ const getUserMenu = async (req, res) => {
 
         // 部门白名单：成本部(1) / 工程部(2)/ 综合办(3) / 销售部(4)
         const DEPT_MENU_WHITELIST = {
-            1: ['/welcome', '/supplier', '/contract', '/sub-contract-list', '/financeManagement'],
-            2: ['/welcome', '/contract', '/sub-contract-list', '/comprehensive', '/financeManagement'],
+            1: ['/welcome', '/supplier', '/contract', '/sub-contract-list', '/financeManagement', '/workFeeApply', '/workFeeApplyApproval'],
+            2: ['/welcome', '/contract', '/sub-contract-list', '/comprehensive', '/financeManagement', '/workFeeApply', '/workFeeApplyApproval'],
             3: ['/welcome', '/workFeeApply', '/workFeeApplyApproval'],
-            4: ['/saleFeeApply', '/saleFeeApplyApproval']
+            4: ['/saleFeeApply', '/saleFeeApplyApproval', '/workFeeApply', '/workFeeApplyApproval']
         };
 
         // 合并所有归属部门的菜单白名单（去重）
