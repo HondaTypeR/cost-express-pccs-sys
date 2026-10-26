@@ -6,7 +6,7 @@ const dbConfig = {
     host: 'localhost',
     port: 3306,
     user: 'root',
-    password: 'Chejunlin@0426t!', // 比如 123456
+    password: 'NewPass123!', // 比如 123456
     database: 'admin_system',
     allowPublicKeyRetrieval: true, // 解决之前的公钥获取报错
     charset: 'utf8mb4' // 支持中文和emoji
